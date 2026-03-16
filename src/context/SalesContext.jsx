@@ -112,7 +112,6 @@ export const SalesProvider = ({ children }) => {
   }, [])
 
   useEffect(() => {
-    if (isSupabaseConfigured) return
     localStorage.setItem(STORAGE_KEY, JSON.stringify(sales))
   }, [sales])
 
@@ -123,13 +122,11 @@ export const SalesProvider = ({ children }) => {
 
   const addSale = async (sale) => {
     if (!isSupabaseConfigured || !supabase) {
-      setSales((prev) => [
-        {
-          id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-          ...sale,
-        },
-        ...prev,
-      ])
+      const localSale = {
+        id: `local-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        ...sale,
+      }
+      setSales((prev) => upsertSale(prev, localSale))
       return true
     }
 
@@ -146,8 +143,14 @@ export const SalesProvider = ({ children }) => {
       .single()
 
     if (error) {
-      console.error('Failed to save sale to Supabase:', error.message)
-      return false
+      console.error('Supabase insert failed:', error.message, '| Code:', error.code)
+      // Fall back: save locally so the sale is never lost
+      const fallbackSale = {
+        id: `local-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        ...sale,
+      }
+      setSales((prev) => upsertSale(prev, fallbackSale))
+      return true
     }
 
     setSales((prev) => upsertSale(prev, mapRowToSale(data)))
