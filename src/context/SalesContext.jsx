@@ -17,6 +17,22 @@ const mapRowToSale = (row) => ({
   city: row.city || 'Pune',
 })
 
+const sortSales = (rows) =>
+  [...rows].sort((a, b) => {
+    const dateSort = (b.date || '').localeCompare(a.date || '')
+    if (dateSort !== 0) return dateSort
+    return (b.id || '').localeCompare(a.id || '')
+  })
+
+const upsertSale = (rows, incoming) => {
+  const index = rows.findIndex((sale) => sale.id === incoming.id)
+  if (index === -1) return sortSales([incoming, ...rows])
+
+  const next = [...rows]
+  next[index] = incoming
+  return sortSales(next)
+}
+
 const readLocalSales = () => {
   const hasLegacySales = LEGACY_STORAGE_KEYS.some((key) => localStorage.getItem(key))
 
@@ -59,13 +75,40 @@ export const SalesProvider = ({ children }) => {
         console.error('Failed to load sales from Supabase:', error.message)
         setSales(readLocalSales())
       } else {
-        setSales((data || []).map(mapRowToSale))
+        setSales(sortSales((data || []).map(mapRowToSale)))
       }
 
       setIsLoading(false)
     }
 
     loadSales()
+  }, [])
+
+  useEffect(() => {
+    if (!isSupabaseConfigured || !supabase) return undefined
+
+    const channel = supabase
+      .channel('sales-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: SALES_TABLE },
+        (payload) => {
+          if (payload.eventType === 'DELETE') {
+            setSales((prev) => prev.filter((sale) => sale.id !== payload.old.id))
+            return
+          }
+
+          if (payload.new) {
+            const mapped = mapRowToSale(payload.new)
+            setSales((prev) => upsertSale(prev, mapped))
+          }
+        },
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
   }, [])
 
   useEffect(() => {
@@ -107,7 +150,7 @@ export const SalesProvider = ({ children }) => {
       return false
     }
 
-    setSales((prev) => [mapRowToSale(data), ...prev])
+    setSales((prev) => upsertSale(prev, mapRowToSale(data)))
     return true
   }
 

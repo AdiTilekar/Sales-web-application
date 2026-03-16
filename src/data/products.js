@@ -4,6 +4,7 @@ const LOCAL_FLAVOR_BASE = `${import.meta.env.BASE_URL}images/flavors/`
 export const PRODUCTS = [
   { id: 'mango', name: 'Mango', price: 25, image: `${FLAVOR_BASE_URL}mango_kulfi.png` },
   { id: 'rabdi', name: 'Rabdi', price: 25, image: `${FLAVOR_BASE_URL}rabdi_kulfi.png` },
+  { id: 'small-rabdi', name: 'Small Rabdi Kulfi', price: 15, image: `${FLAVOR_BASE_URL}rabdi_kulfi.png` },
   { id: 'dry-fruit', name: 'Dry Fruit', price: 30, image: `${FLAVOR_BASE_URL}dry_fruit_kulfi.png` },
   { id: 'pista', name: 'Pista', price: 30, image: `${LOCAL_FLAVOR_BASE}pista_kulfi.png` },
   { id: 'chocolate', name: 'Chocolate', price: 25, image: `${FLAVOR_BASE_URL}chocolate_kulfi.png` },

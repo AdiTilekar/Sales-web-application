@@ -15,6 +15,7 @@ const AddSale = () => {
   const [toastMessage, setToastMessage] = useState('✓ Sale recorded!')
   const [searchInput, setSearchInput] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
+  const [cartItems, setCartItems] = useState([])
 
   const selectedProduct = products.find((product) => product.id === selectedProductId)
 
@@ -23,6 +24,25 @@ const AddSale = () => {
     const normalized = searchQuery.trim().toLowerCase()
     return products.filter((product) => product.name.toLowerCase().includes(normalized))
   }, [products, searchQuery])
+
+  const cartDetails = useMemo(() => {
+    const detailedItems = cartItems
+      .map((item) => {
+        const product = products.find((p) => p.id === item.productId)
+        if (!product) return null
+        return {
+          ...item,
+          product,
+          amount: item.quantity * product.price,
+        }
+      })
+      .filter(Boolean)
+
+    const totalAmount = detailedItems.reduce((sum, item) => sum + item.amount, 0)
+    const totalUnits = detailedItems.reduce((sum, item) => sum + item.quantity, 0)
+
+    return { detailedItems, totalAmount, totalUnits }
+  }, [cartItems, products])
 
   useEffect(() => {
     if (!showToast) return undefined
@@ -74,6 +94,64 @@ const AddSale = () => {
     setShowToast(true)
   }
 
+  const handleAddToCart = () => {
+    if (!selectedProductId || !quantity || Number(quantity) <= 0) return
+
+    setCartItems((prev) => {
+      const existing = prev.find((item) => item.productId === selectedProductId)
+      if (existing) {
+        return prev.map((item) =>
+          item.productId === selectedProductId
+            ? { ...item, quantity: item.quantity + Number(quantity) }
+            : item,
+        )
+      }
+
+      return [...prev, { productId: selectedProductId, quantity: Number(quantity) }]
+    })
+
+    setToastMessage('Item added to cart')
+    setShowToast(true)
+    closeSheet()
+    setQuantity(1)
+  }
+
+  const removeCartItem = (productId) => {
+    setCartItems((prev) => prev.filter((item) => item.productId !== productId))
+  }
+
+  const handleCartCheckout = async () => {
+    if (cartDetails.detailedItems.length === 0) return
+
+    let allSaved = true
+    for (const item of cartDetails.detailedItems) {
+      const saved = await addSale({
+        productId: item.productId,
+        quantity: item.quantity,
+        customer: customer.trim() || 'Walk-in Customer',
+        city: city.trim() || 'Pune',
+        date,
+      })
+      if (!saved) {
+        allSaved = false
+        break
+      }
+    }
+
+    if (!allSaved) {
+      setToastMessage('Could not save full cart. Check connection and try again.')
+      setShowToast(true)
+      return
+    }
+
+    setCartItems([])
+    setCustomer('')
+    setCity('')
+    setDate(new Date().toISOString().split('T')[0])
+    setToastMessage('✓ Cart sales recorded!')
+    setShowToast(true)
+  }
+
   const handleSearch = (event) => {
     event.preventDefault()
     setSearchQuery(searchInput)
@@ -93,6 +171,31 @@ const AddSale = () => {
 
       <div className="glass-card mobile-help">
         <p>Select a kulfi below to open the sale window.</p>
+      </div>
+
+      <div className="glass-card sale-details-panel">
+        <h3>Sale Details</h3>
+        <div className="form-grid compact-form-grid">
+          <label>
+            Customer / Retailer
+            <input
+              type="text"
+              value={customer}
+              onChange={(event) => setCustomer(event.target.value)}
+              placeholder="Walk-in Customer"
+            />
+          </label>
+
+          <label>
+            City
+            <input type="text" value={city} onChange={(event) => setCity(event.target.value)} placeholder="Pune" />
+          </label>
+
+          <label>
+            Date
+            <input type="date" value={date} onChange={(event) => setDate(event.target.value)} required />
+          </label>
+        </div>
       </div>
 
       <form className="glass-card flavor-search" onSubmit={handleSearch}>
@@ -127,6 +230,45 @@ const AddSale = () => {
           <p>No flavors matched your search.</p>
         </div>
       ) : null}
+
+      <div className="glass-card cart-panel">
+        <div className="cart-header">
+          <h3>Selected Items Cart</h3>
+          <span>{cartDetails.totalUnits.toLocaleString('en-IN')} units</span>
+        </div>
+
+        {cartDetails.detailedItems.length === 0 ? (
+          <p className="cart-empty">No items in cart yet. Use Add to Cart from a selected flavor.</p>
+        ) : (
+          <>
+            <div className="cart-list">
+              {cartDetails.detailedItems.map((item) => (
+                <div className="cart-row" key={item.productId}>
+                  <div>
+                    <p>{item.product.name}</p>
+                    <small>
+                      {item.quantity} x ₹{item.product.price.toLocaleString('en-IN')}
+                    </small>
+                  </div>
+                  <div className="cart-row-right">
+                    <strong>₹{item.amount.toLocaleString('en-IN')}</strong>
+                    <button type="button" className="delete-btn" onClick={() => removeCartItem(item.productId)}>
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="cart-footer">
+              <h3>Total Amount: ₹{cartDetails.totalAmount.toLocaleString('en-IN')}</h3>
+              <button type="button" className="cta-btn cta-large" onClick={handleCartCheckout}>
+                Add Cart to Sale →
+              </button>
+            </div>
+          </>
+        )}
+      </div>
 
       {isSheetOpen && selectedProduct ? (
         <div className="sheet-backdrop" onClick={closeSheet}>
@@ -180,36 +322,14 @@ const AddSale = () => {
               ))}
             </div>
 
-            <div className="form-grid compact-form-grid">
-              <label>
-                Customer / Retailer
-                <input
-                  type="text"
-                  value={customer}
-                  onChange={(event) => setCustomer(event.target.value)}
-                  placeholder="Walk-in Customer"
-                />
-              </label>
-
-              <label>
-                City
-                <input
-                  type="text"
-                  value={city}
-                  onChange={(event) => setCity(event.target.value)}
-                  placeholder="Pune"
-                />
-              </label>
-
-              <label>
-                Date
-                <input type="date" value={date} onChange={(event) => setDate(event.target.value)} required />
-              </label>
+            <div className="sheet-actions">
+              <button type="button" className="outline-btn" onClick={handleAddToCart}>
+                Add to Cart
+              </button>
+              <button type="submit" className="cta-btn cta-full">
+                Add to Sale
+              </button>
             </div>
-
-            <button type="submit" className="cta-btn cta-large cta-full">
-              Add to Sales Record →
-            </button>
           </form>
         </div>
       ) : null}
