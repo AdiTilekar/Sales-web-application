@@ -7,7 +7,7 @@ const AddSale = () => {
   const { products, addSale } = useSales()
   const [selectedProductId, setSelectedProductId] = useState('')
   const [isSheetOpen, setIsSheetOpen] = useState(false)
-  const [quantity, setQuantity] = useState(1)
+  const [quantity, setQuantity] = useState('')
   const [customer, setCustomer] = useState('')
   const [city, setCity] = useState('')
   const [date, setDate] = useState(new Date().toISOString().split('T')[0])
@@ -62,7 +62,7 @@ const AddSale = () => {
 
   const openSheet = (productId) => {
     setSelectedProductId(productId)
-    setQuantity(1)
+    setQuantity('')
     setIsSheetOpen(true)
   }
 
@@ -72,9 +72,13 @@ const AddSale = () => {
   }
 
   const updateQuantity = (nextValue) => {
+    if (nextValue === '' || nextValue == null) {
+      setQuantity('')
+      return
+    }
     const normalized = Number(nextValue)
-    if (Number.isNaN(normalized)) return
-    setQuantity(Math.max(1, normalized))
+    if (Number.isNaN(normalized) || normalized < 0) return
+    setQuantity(normalized)
   }
 
   const handleSubmit = async (event) => {
@@ -95,7 +99,7 @@ const AddSale = () => {
       return
     }
 
-    setQuantity(1)
+    setQuantity('')
     setCustomer('')
     setCity('')
     setDate(new Date().toISOString().split('T')[0])
@@ -123,7 +127,7 @@ const AddSale = () => {
     setToastMessage('Item added to cart')
     setShowToast(true)
     closeSheet()
-    setQuantity(1)
+    setQuantity('')
   }
 
   const removeCartItem = (productId) => {
