@@ -50,6 +50,16 @@ const AddSale = () => {
     return () => clearTimeout(timer)
   }, [showToast])
 
+  useEffect(() => {
+    if (!isSheetOpen) return undefined
+    const prevOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+
+    return () => {
+      document.body.style.overflow = prevOverflow
+    }
+  }, [isSheetOpen])
+
   const openSheet = (productId) => {
     setSelectedProductId(productId)
     setQuantity(1)
@@ -175,7 +185,7 @@ const AddSale = () => {
 
       <div className="glass-card sale-details-panel">
         <h3>Sale Details</h3>
-        <div className="form-grid compact-form-grid">
+        <div className="form-grid sale-details-grid">
           <label>
             Customer / Retailer
             <input
