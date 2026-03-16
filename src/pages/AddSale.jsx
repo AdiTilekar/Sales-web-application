@@ -12,6 +12,7 @@ const AddSale = () => {
   const [city, setCity] = useState('')
   const [date, setDate] = useState(new Date().toISOString().split('T')[0])
   const [showToast, setShowToast] = useState(false)
+  const [toastMessage, setToastMessage] = useState('✓ Sale recorded!')
   const [searchInput, setSearchInput] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
 
@@ -46,11 +47,11 @@ const AddSale = () => {
     setQuantity(Math.max(1, normalized))
   }
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault()
     if (!selectedProductId || !quantity || Number(quantity) <= 0) return
 
-    addSale({
+    const isSaved = await addSale({
       productId: selectedProductId,
       quantity: Number(quantity),
       customer: customer.trim() || 'Walk-in Customer',
@@ -58,11 +59,18 @@ const AddSale = () => {
       date,
     })
 
+    if (!isSaved) {
+      setToastMessage('Could not save sale. Check connection and try again.')
+      setShowToast(true)
+      return
+    }
+
     setQuantity(1)
     setCustomer('')
     setCity('')
     setDate(new Date().toISOString().split('T')[0])
     closeSheet()
+    setToastMessage('✓ Sale recorded!')
     setShowToast(true)
   }
 
@@ -206,7 +214,7 @@ const AddSale = () => {
         </div>
       ) : null}
 
-      <ToastNotification show={showToast} message="✓ Sale recorded!" />
+      <ToastNotification show={showToast} message={toastMessage} />
     </section>
   )
 }

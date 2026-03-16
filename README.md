@@ -1,16 +1,47 @@
-# React + Vite
+# Shree Ganesh Kulfi Sales App
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Sales analytics and entry app built with React + Vite.
 
-Currently, two official plugins are available:
+## 1. Install and run
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+```bash
+npm install
+npm run dev
+```
 
-## React Compiler
+## 2. Supabase database setup (shared data across phones)
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+1. Create a Supabase project.
+2. Open SQL Editor and run the script in [supabase-schema.sql](supabase-schema.sql).
+3. In Project Settings -> API, copy:
+   - Project URL
+   - Anon public key
+4. Create a `.env` file based on [.env.example](.env.example):
 
-## Expanding the ESLint configuration
+```env
+VITE_SUPABASE_URL=your-supabase-url
+VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
+```
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+5. Restart dev server.
+
+If Supabase env vars are missing, the app falls back to browser localStorage.
+
+## 3. Deploy on GitHub Pages
+
+The repository includes Pages workflow at [.github/workflows/deploy.yml](.github/workflows/deploy.yml).
+
+1. Push to `main`.
+2. In GitHub -> Settings -> Pages, ensure source is GitHub Actions.
+3. Add repository variables/secrets for build-time env values:
+   - `VITE_SUPABASE_URL`
+   - `VITE_SUPABASE_ANON_KEY`
+
+Without these env values, deployed site will run in localStorage fallback mode.
+
+## 4. Build and lint
+
+```bash
+npm run build
+npm run lint
+```
