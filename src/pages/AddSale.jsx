@@ -187,64 +187,6 @@ const AddSale = () => {
         <p>Select a kulfi below to open the sale window.</p>
       </div>
 
-      <div className="glass-card sale-details-panel">
-        <h3>Sale Details</h3>
-        <div className="form-grid sale-details-grid">
-          <label>
-            Customer / Retailer
-            <input
-              type="text"
-              value={customer}
-              onChange={(event) => setCustomer(event.target.value)}
-              placeholder="Walk-in Customer"
-            />
-          </label>
-
-          <label>
-            City
-            <input type="text" value={city} onChange={(event) => setCity(event.target.value)} placeholder="Pune" />
-          </label>
-
-          <label>
-            Date
-            <input type="date" value={date} onChange={(event) => setDate(event.target.value)} required />
-          </label>
-        </div>
-      </div>
-
-      <form className="glass-card flavor-search" onSubmit={handleSearch}>
-        <input
-          type="text"
-          value={searchInput}
-          onChange={(event) => setSearchInput(event.target.value)}
-          placeholder="Search flavor..."
-          aria-label="Search flavor"
-        />
-        <button type="submit" className="cta-btn">
-          Search Flavor
-        </button>
-        <button type="button" className="outline-btn" onClick={clearSearch}>
-          Clear
-        </button>
-      </form>
-
-      <div className="flavor-grid">
-        {filteredProducts.map((product) => (
-          <FlavorCard
-            key={product.id}
-            product={product}
-            selected={selectedProductId === product.id && isSheetOpen}
-            onSelect={openSheet}
-          />
-        ))}
-      </div>
-
-      {filteredProducts.length === 0 ? (
-        <div className="glass-card mobile-help">
-          <p>No flavors matched your search.</p>
-        </div>
-      ) : null}
-
       <div className="glass-card cart-panel">
         <div className="cart-header">
           <h3>Selected Items Cart</h3>
@@ -282,6 +224,64 @@ const AddSale = () => {
             </div>
           </>
         )}
+      </div>
+
+      <form className="glass-card flavor-search" onSubmit={handleSearch}>
+        <input
+          type="text"
+          value={searchInput}
+          onChange={(event) => setSearchInput(event.target.value)}
+          placeholder="Search flavor..."
+          aria-label="Search flavor"
+        />
+        <button type="submit" className="cta-btn">
+          Search Flavor
+        </button>
+        <button type="button" className="outline-btn" onClick={clearSearch}>
+          Clear
+        </button>
+      </form>
+
+      <div className="flavor-grid">
+        {filteredProducts.map((product) => (
+          <FlavorCard
+            key={product.id}
+            product={product}
+            selected={selectedProductId === product.id && isSheetOpen}
+            onSelect={openSheet}
+          />
+        ))}
+      </div>
+
+      {filteredProducts.length === 0 ? (
+        <div className="glass-card mobile-help">
+          <p>No flavors matched your search.</p>
+        </div>
+      ) : null}
+
+      <div className="glass-card sale-details-panel">
+        <h3>Sale Details</h3>
+        <div className="form-grid sale-details-grid">
+          <label>
+            Customer / Retailer
+            <input
+              type="text"
+              value={customer}
+              onChange={(event) => setCustomer(event.target.value)}
+              placeholder="Walk-in Customer"
+            />
+          </label>
+
+          <label>
+            City
+            <input type="text" value={city} onChange={(event) => setCity(event.target.value)} placeholder="Pune" />
+          </label>
+
+          <label>
+            Date
+            <input type="date" value={date} onChange={(event) => setDate(event.target.value)} required />
+          </label>
+        </div>
       </div>
 
       {isSheetOpen && selectedProduct ? (
