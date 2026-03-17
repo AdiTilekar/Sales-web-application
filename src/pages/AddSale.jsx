@@ -134,6 +134,15 @@ const AddSale = () => {
     setCartItems((prev) => prev.filter((item) => item.productId !== productId))
   }
 
+  const handleClearCart = () => {
+    if (cartItems.length === 0) return
+    const shouldClear = window.confirm('Clear all items from the cart?')
+    if (!shouldClear) return
+    setCartItems([])
+    setToastMessage('Cart cleared')
+    setShowToast(true)
+  }
+
   const handleCartCheckout = async () => {
     if (cartDetails.detailedItems.length === 0) return
 
@@ -180,7 +189,7 @@ const AddSale = () => {
     <section className="page page-enter">
       <div className="page-header">
         <h2>Add Sale Entry</h2>
-        <p>Tap a flavor, choose quantity, and save quickly on mobile.</p>
+        <p>Select flavor, add quantity, then complete checkout quickly.</p>
       </div>
 
       <div className="glass-card mobile-help">
@@ -218,9 +227,14 @@ const AddSale = () => {
 
             <div className="cart-footer">
               <h3>Total Amount: ₹{cartDetails.totalAmount.toLocaleString('en-IN')}</h3>
-              <button type="button" className="cta-btn cta-large" onClick={handleCartCheckout}>
-                Add Cart to Sale →
-              </button>
+              <div className="cart-actions-row">
+                <button type="button" className="outline-btn" onClick={handleClearCart}>
+                  Clear Cart
+                </button>
+                <button type="button" className="cta-btn cta-large" onClick={handleCartCheckout}>
+                  Add Cart to Sale →
+                </button>
+              </div>
             </div>
           </>
         )}
@@ -284,17 +298,6 @@ const AddSale = () => {
         </div>
       </div>
 
-      {cartDetails.detailedItems.length > 0 ? (
-        <div className="glass-card cart-checkout-panel">
-          <div className="cart-footer">
-            <h3>Total: ₹{cartDetails.totalAmount.toLocaleString('en-IN')} &mdash; {cartDetails.totalUnits} units</h3>
-            <button type="button" className="cta-btn cta-large" onClick={handleCartCheckout}>
-              Add Cart to Sale →
-            </button>
-          </div>
-        </div>
-      ) : null}
-
       {isSheetOpen && selectedProduct ? (
         <div className="sheet-backdrop" onClick={closeSheet}>
           <form className="glass-card sale-sheet" onSubmit={handleSubmit} onClick={(event) => event.stopPropagation()}>
@@ -356,6 +359,17 @@ const AddSale = () => {
               </button>
             </div>
           </form>
+        </div>
+      ) : null}
+
+      {cartDetails.detailedItems.length > 0 ? (
+        <div className="mobile-sticky-checkout" role="region" aria-label="Cart checkout">
+          <p>
+            {cartDetails.totalUnits.toLocaleString('en-IN')} units • ₹{cartDetails.totalAmount.toLocaleString('en-IN')}
+          </p>
+          <button type="button" className="cta-btn" onClick={handleCartCheckout}>
+            Checkout Cart
+          </button>
         </div>
       ) : null}
 

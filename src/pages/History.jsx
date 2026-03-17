@@ -50,6 +50,14 @@ const History = () => {
     setPage(1)
   }
 
+  const handleDeleteSale = async (sale) => {
+    const product = productMap[sale.productId]
+    const label = `${product?.name || 'Unknown flavor'} on ${new Date(sale.date).toLocaleDateString('en-IN')}`
+    const shouldDelete = window.confirm(`Delete sale: ${label}?`)
+    if (!shouldDelete) return
+    await deleteSale(sale.id)
+  }
+
   const exportAsExcel = () => {
     if (filteredSales.length === 0) return
 
@@ -211,7 +219,7 @@ const History = () => {
                     <td>{sale.customer}</td>
                     <td>{sale.city}</td>
                     <td>
-                      <button type="button" className="delete-btn" onClick={() => deleteSale(sale.id)}>
+                      <button type="button" className="delete-btn" onClick={() => handleDeleteSale(sale)}>
                         Delete
                       </button>
                     </td>
@@ -230,6 +238,40 @@ const History = () => {
             </tr>
           </tfoot>
         </table>
+      </div>
+
+      <div className="mobile-sales-list" aria-label="History cards for mobile">
+        {currentRows.length === 0 ? (
+          <div className="glass-card mobile-sale-card mobile-sale-empty">No previous-day sales found for the current filters.</div>
+        ) : (
+          currentRows.map((sale) => {
+            const product = productMap[sale.productId]
+            const revenue = sale.quantity * (product?.price || 0)
+
+            return (
+              <article key={sale.id} className="glass-card mobile-sale-card">
+                <div className="mobile-sale-top">
+                  <div className="flavor-cell">
+                    <img src={product?.image} alt={product?.name} />
+                    <div>
+                      <strong>{product?.name || sale.productId}</strong>
+                      <p>{new Date(sale.date).toLocaleDateString('en-IN')}</p>
+                    </div>
+                  </div>
+                  <button type="button" className="delete-btn" onClick={() => handleDeleteSale(sale)}>
+                    Delete
+                  </button>
+                </div>
+                <div className="mobile-sale-meta">
+                  <span>Qty: {sale.quantity.toLocaleString('en-IN')}</span>
+                  <span>Revenue: {formatCurrency(revenue)}</span>
+                  <span>{sale.customer}</span>
+                  <span>{sale.city}</span>
+                </div>
+              </article>
+            )
+          })
+        )}
       </div>
 
       <div className="pagination">
