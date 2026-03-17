@@ -284,6 +284,17 @@ const AddSale = () => {
         </div>
       </div>
 
+      {cartDetails.detailedItems.length > 0 ? (
+        <div className="glass-card cart-checkout-panel">
+          <div className="cart-footer">
+            <h3>Total: ₹{cartDetails.totalAmount.toLocaleString('en-IN')} &mdash; {cartDetails.totalUnits} units</h3>
+            <button type="button" className="cta-btn cta-large" onClick={handleCartCheckout}>
+              Add Cart to Sale →
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       {isSheetOpen && selectedProduct ? (
         <div className="sheet-backdrop" onClick={closeSheet}>
           <form className="glass-card sale-sheet" onSubmit={handleSubmit} onClick={(event) => event.stopPropagation()}>
