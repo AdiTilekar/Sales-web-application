@@ -99,9 +99,6 @@ select {
   justify-content: space-between;
   align-items: center;
   gap: 1rem;
-  position: sticky;
-  top: 0.45rem;
-  z-index: 20;
 }
 
 .brand-wrap {
