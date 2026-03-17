@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import MetricCard from '../components/MetricCard'
 import ViewModeSwitch from '../components/ViewModeSwitch'
 import { useSales } from '../context/SalesContext'
 
@@ -6,21 +7,21 @@ const ROWS_PER_PAGE = 20
 
 const formatCurrency = (value) => `₹${value.toLocaleString('en-IN')}`
 
-const Records = () => {
-  const { sales, products, productMap, deleteSale } = useSales()
+const History = () => {
+  const { historySales, products, productMap, deleteSale } = useSales()
   const [flavorFilter, setFlavorFilter] = useState('all')
   const [fromDate, setFromDate] = useState('')
   const [toDate, setToDate] = useState('')
   const [page, setPage] = useState(1)
 
   const filteredSales = useMemo(() => {
-    return sales.filter((sale) => {
+    return historySales.filter((sale) => {
       if (flavorFilter !== 'all' && sale.productId !== flavorFilter) return false
       if (fromDate && sale.date < fromDate) return false
       if (toDate && sale.date > toDate) return false
       return true
     })
-  }, [flavorFilter, fromDate, sales, toDate])
+  }, [flavorFilter, fromDate, historySales, toDate])
 
   const totals = useMemo(() => {
     return filteredSales.reduce(
@@ -28,9 +29,10 @@ const Records = () => {
         const product = productMap[sale.productId]
         acc.units += sale.quantity
         acc.revenue += sale.quantity * (product?.price || 0)
+        acc.days.add(sale.date)
         return acc
       },
-      { units: 0, revenue: 0 },
+      { units: 0, revenue: 0, days: new Set() },
     )
   }, [filteredSales, productMap])
 
@@ -71,6 +73,7 @@ const Records = () => {
       ['Total Rows', filteredSales.length],
       ['Total Units', totals.units],
       ['Total Revenue', totals.revenue],
+      ['Covered Days', totals.days.size],
     ]
 
     const csvLines = [
@@ -87,7 +90,7 @@ const Records = () => {
 
     const fileDate = new Date().toISOString().slice(0, 10)
     link.href = url
-    link.download = `kulfi_sales_report_${fileDate}.csv`
+    link.download = `kulfi_sales_history_${fileDate}.csv`
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
@@ -97,11 +100,17 @@ const Records = () => {
   return (
     <section className="page page-enter">
       <div className="page-header">
-        <h2>Sales Records</h2>
-        <p>Filter, review, and manage today&apos;s sales entries.</p>
+        <h2>Sales History</h2>
+        <p>Review and export previous-day sales without affecting today&apos;s workspace.</p>
       </div>
 
       <ViewModeSwitch />
+
+      <div className="history-summary">
+        <MetricCard title="History Revenue" value={formatCurrency(totals.revenue)} subtitle="Across filtered past entries" />
+        <MetricCard title="History Units" value={totals.units.toLocaleString('en-IN')} subtitle="Past-day kulfi units" />
+        <MetricCard title="Days Covered" value={totals.days.size.toLocaleString('en-IN')} subtitle="Unique past dates in filters" />
+      </div>
 
       <div className="glass-card filter-bar">
         <label>
@@ -156,7 +165,7 @@ const Records = () => {
             onClick={exportAsExcel}
             disabled={filteredSales.length === 0}
           >
-            Export as Excel Report
+            Export History Report
           </button>
         </div>
       </div>
@@ -179,7 +188,7 @@ const Records = () => {
             {currentRows.length === 0 ? (
               <tr>
                 <td colSpan="8" className="empty-row">
-                  No sales found for today with the current filters.
+                  No previous-day sales found for the current filters.
                 </td>
               </tr>
             ) : (
@@ -242,4 +251,4 @@ const Records = () => {
   )
 }
 
-export default Records
+export default History

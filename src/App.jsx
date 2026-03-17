@@ -3,6 +3,7 @@ import Navbar from './components/Navbar'
 import AddSale from './pages/AddSale'
 import Dashboard from './pages/Dashboard'
 import FlavorAnalysis from './pages/FlavorAnalysis'
+import History from './pages/History'
 import Records from './pages/Records'
 
 function App() {
@@ -15,6 +16,7 @@ function App() {
           <Route path="/add" element={<AddSale />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/records" element={<Records />} />
+          <Route path="/history" element={<History />} />
           <Route path="/flavors" element={<FlavorAnalysis />} />
           <Route path="*" element={<Navigate to="/add" replace />} />
         </Routes>

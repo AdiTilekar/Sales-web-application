@@ -157,6 +157,25 @@ select {
   color: var(--muted);
 }
 
+.view-mode-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem;
+}
+
+.view-mode-switch a {
+  padding: 0.45rem 0.9rem;
+  border-radius: 999px;
+  color: var(--muted);
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.view-mode-switch a.active {
+  background: rgba(242, 166, 35, 0.15);
+  color: var(--accent);
+}
+
 .metrics-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(170px, 1fr));
@@ -165,6 +184,12 @@ select {
 
 .metric-card {
   padding: 1rem;
+}
+
+.history-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(170px, 1fr));
+  gap: 0.9rem;
 }
 
 .metric-title {
@@ -810,6 +835,10 @@ select:focus {
     grid-template-columns: repeat(2, minmax(170px, 1fr));
   }
 
+  .history-summary {
+    grid-template-columns: repeat(2, minmax(170px, 1fr));
+  }
+
   .chart-grid,
   .analysis-grid {
     grid-template-columns: 1fr;
@@ -870,6 +899,7 @@ select:focus {
   }
 
   .metrics-grid,
+  .history-summary,
   .form-grid,
   .filter-bar,
   .sale-details-grid {

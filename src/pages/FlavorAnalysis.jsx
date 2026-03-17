@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { Bar, BarChart, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import ViewModeSwitch from '../components/ViewModeSwitch'
 import { useSales } from '../context/SalesContext'
 
 const formatCurrency = (value) => `₹${value.toLocaleString('en-IN')}`
@@ -38,8 +39,10 @@ const FlavorAnalysis = () => {
     <section className="page page-enter">
       <div className="page-header">
         <h2>Flavor Analysis</h2>
-        <p>Compare revenue performance and unit share across all kulfi flavors.</p>
+        <p>Compare revenue performance and unit share across today&apos;s kulfi sales.</p>
       </div>
+
+      <ViewModeSwitch />
 
       <div className="analysis-grid">
         <article className="glass-card chart-card">

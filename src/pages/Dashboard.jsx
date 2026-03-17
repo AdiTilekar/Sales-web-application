@@ -3,6 +3,7 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  
   Line,
   LineChart,
   ResponsiveContainer,
@@ -11,6 +12,7 @@ import {
   YAxis,
 } from 'recharts'
 import MetricCard from '../components/MetricCard'
+import ViewModeSwitch from '../components/ViewModeSwitch'
 import { useSales } from '../context/SalesContext'
 
 const formatCurrency = (value) => `₹${value.toLocaleString('en-IN')}`
@@ -67,36 +69,34 @@ const Dashboard = () => {
   }, [productMap, sales])
 
   const dailyTrend = useMemo(() => {
-    const orderedDays = []
-    const today = new Date()
+    const today = new Date().toISOString().split('T')[0]
+    const revenue = sales.reduce((sum, sale) => {
+      if (sale.date !== today) return sum
+      return sum + sale.quantity * (productMap[sale.productId]?.price || 0)
+    }, 0)
 
-    for (let i = 29; i >= 0; i -= 1) {
-      const day = new Date(today)
-      day.setDate(today.getDate() - i)
-      orderedDays.push(day.toISOString().split('T')[0])
-    }
-
-    const map = orderedDays.reduce((acc, date) => ({ ...acc, [date]: 0 }), {})
-
-    sales.forEach((sale) => {
-      if (map[sale.date] !== undefined) {
-        map[sale.date] += sale.quantity * (productMap[sale.productId]?.price || 0)
-      }
-    })
-
-    return orderedDays.map((date) => ({
-      date: new Date(date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }),
-      revenue: map[date],
-    }))
+    return [
+      {
+        date: new Date(today).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }),
+        revenue,
+      },
+    ]
   }, [productMap, sales])
 
   return (
     <section className="page page-enter">
+      <div className="page-header">
+        <h2>Dashboard</h2>
+        <p>Track today&apos;s revenue, units, and top-performing flavors.</p>
+      </div>
+
+      <ViewModeSwitch />
+
       <div className="metrics-grid">
         <MetricCard
           title="Total Revenue"
           value={formatCurrency(metrics.totalRevenue)}
-          subtitle="Across all recorded orders"
+          subtitle="Today&apos;s recorded orders"
         />
         <MetricCard title="Units Sold" value={metrics.totalUnits.toLocaleString('en-IN')} subtitle="Total kulfi sticks" />
         <MetricCard
@@ -109,7 +109,7 @@ const Dashboard = () => {
 
       <div className="chart-grid">
         <article className="glass-card chart-card">
-          <h2>Monthly Revenue</h2>
+          <h2>Today&apos;s Revenue Snapshot</h2>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={monthlyRevenue}>
               <CartesianGrid stroke="rgba(255,255,255,0.12)" strokeDasharray="4 4" />
@@ -143,7 +143,7 @@ const Dashboard = () => {
         </article>
 
         <article className="glass-card chart-card chart-card-wide">
-          <h2>30-day Daily Sales Trend</h2>
+          <h2>Today&apos;s Sales Trend</h2>
           <ResponsiveContainer width="100%" height={320}>
             <LineChart data={dailyTrend}>
               <CartesianGrid stroke="rgba(255,255,255,0.12)" strokeDasharray="4 4" />

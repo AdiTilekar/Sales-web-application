@@ -8,6 +8,18 @@ const SALES_TABLE = 'sales'
 
 const SalesContext = createContext(null)
 
+const getTodayDate = () => new Date().toISOString().split('T')[0]
+
+const filterSalesForToday = (rows) => {
+  const today = getTodayDate()
+  return rows.filter((sale) => sale.date === today)
+}
+
+const filterSalesForHistory = (rows) => {
+  const today = getTodayDate()
+  return rows.filter((sale) => sale.date !== today)
+}
+
 const mapRowToSale = (row) => ({
   id: row.id,
   date: row.date,
@@ -47,20 +59,20 @@ const readLocalSales = () => {
   if (!saved) return []
 
   try {
-    return JSON.parse(saved)
+    return sortSales(JSON.parse(saved))
   } catch {
     return []
   }
 }
 
 export const SalesProvider = ({ children }) => {
-  const [sales, setSales] = useState([])
+  const [allSales, setAllSales] = useState([])
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
     const loadSales = async () => {
       if (!isSupabaseConfigured || !supabase) {
-        setSales(readLocalSales())
+        setAllSales(readLocalSales())
         setIsLoading(false)
         return
       }
@@ -73,9 +85,9 @@ export const SalesProvider = ({ children }) => {
 
       if (error) {
         console.error('Failed to load sales from Supabase:', error.message)
-        setSales(readLocalSales())
+        setAllSales(readLocalSales())
       } else {
-        setSales(sortSales((data || []).map(mapRowToSale)))
+        setAllSales(sortSales((data || []).map(mapRowToSale)))
       }
 
       setIsLoading(false)
@@ -94,13 +106,13 @@ export const SalesProvider = ({ children }) => {
         { event: '*', schema: 'public', table: SALES_TABLE },
         (payload) => {
           if (payload.eventType === 'DELETE') {
-            setSales((prev) => prev.filter((sale) => sale.id !== payload.old.id))
+            setAllSales((prev) => prev.filter((sale) => sale.id !== payload.old.id))
             return
           }
 
           if (payload.new) {
             const mapped = mapRowToSale(payload.new)
-            setSales((prev) => upsertSale(prev, mapped))
+            setAllSales((prev) => upsertSale(prev, mapped))
           }
         },
       )
@@ -112,13 +124,16 @@ export const SalesProvider = ({ children }) => {
   }, [])
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(sales))
-  }, [sales])
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(allSales))
+  }, [allSales])
 
   const productMap = useMemo(
     () => PRODUCTS.reduce((acc, product) => ({ ...acc, [product.id]: product }), {}),
     [],
   )
+
+  const todaySales = useMemo(() => filterSalesForToday(allSales), [allSales])
+  const historySales = useMemo(() => filterSalesForHistory(allSales), [allSales])
 
   const addSale = async (sale) => {
     if (!isSupabaseConfigured || !supabase) {
@@ -126,7 +141,7 @@ export const SalesProvider = ({ children }) => {
         id: `local-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
         ...sale,
       }
-      setSales((prev) => upsertSale(prev, localSale))
+      setAllSales((prev) => upsertSale(prev, localSale))
       return true
     }
 
@@ -149,17 +164,17 @@ export const SalesProvider = ({ children }) => {
         id: `local-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
         ...sale,
       }
-      setSales((prev) => upsertSale(prev, fallbackSale))
+      setAllSales((prev) => upsertSale(prev, fallbackSale))
       return true
     }
 
-    setSales((prev) => upsertSale(prev, mapRowToSale(data)))
+    setAllSales((prev) => upsertSale(prev, mapRowToSale(data)))
     return true
   }
 
   const deleteSale = async (id) => {
     if (!isSupabaseConfigured || !supabase) {
-      setSales((prev) => prev.filter((sale) => sale.id !== id))
+      setAllSales((prev) => prev.filter((sale) => sale.id !== id))
       return true
     }
 
@@ -170,16 +185,19 @@ export const SalesProvider = ({ children }) => {
       return false
     }
 
-    setSales((prev) => prev.filter((sale) => sale.id !== id))
+    setAllSales((prev) => prev.filter((sale) => sale.id !== id))
     return true
   }
 
   const clearSales = () => {
-    setSales([])
+    setAllSales([])
   }
 
   const value = {
-    sales,
+    sales: todaySales,
+    todaySales,
+    historySales,
+    allSales,
     addSale,
     deleteSale,
     clearSales,
@@ -187,6 +205,7 @@ export const SalesProvider = ({ children }) => {
     isCloudSyncEnabled: isSupabaseConfigured,
     products: PRODUCTS,
     productMap,
+    todayDate: getTodayDate(),
   }
 
   return <SalesContext.Provider value={value}>{children}</SalesContext.Provider>
