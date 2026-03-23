@@ -72,6 +72,46 @@ const upsertManySales = (rows, incomingRows) =>
 
 const isLocalOnlySale = (sale) => String(sale.id || '').startsWith('local-')
 
+const isMissingUnitCostError = (error) => {
+  const message = String(error?.message || '').toLowerCase()
+  const code = String(error?.code || '').toLowerCase()
+  return message.includes('unit_cost') && (message.includes('schema cache') || code === 'pgrst204')
+}
+
+const toInsertPayload = (sales, includeUnitCost = true) =>
+  sales.map((sale) => {
+    const payload = {
+      date: sale.date,
+      product_id: sale.productId,
+      quantity: sale.quantity,
+      unit_price: sale.unitPrice,
+      unit_profit: sale.unitProfit,
+      customer: sale.customer,
+      city: sale.city,
+    }
+
+    if (includeUnitCost) {
+      payload.unit_cost = sale.unitCost
+    }
+
+    return payload
+  })
+
+const insertSalesToCloud = async (normalizedBatch) => {
+  if (!supabase) {
+    return { data: null, error: new Error('Supabase is not configured') }
+  }
+
+  let response = await supabase.from(SALES_TABLE).insert(toInsertPayload(normalizedBatch, true)).select('*')
+
+  if (response.error && isMissingUnitCostError(response.error)) {
+    // Backward compatibility for projects where unit_cost is not yet migrated.
+    response = await supabase.from(SALES_TABLE).insert(toInsertPayload(normalizedBatch, false)).select('*')
+  }
+
+  return response
+}
+
 const readLocalSales = () => {
   const hasLegacySales = LEGACY_STORAGE_KEYS.some((key) => localStorage.getItem(key))
 
@@ -105,21 +145,7 @@ export const SalesProvider = ({ children }) => {
     const normalizedBatch = pendingSales.map(normalizeSaleForStorage)
     const pendingIds = new Set(normalizedBatch.map((sale) => sale.id))
 
-    const { data, error } = await supabase
-      .from(SALES_TABLE)
-      .insert(
-        normalizedBatch.map((sale) => ({
-          date: sale.date,
-          product_id: sale.productId,
-          quantity: sale.quantity,
-          unit_price: sale.unitPrice,
-          unit_profit: sale.unitProfit,
-          unit_cost: sale.unitCost,
-          customer: sale.customer,
-          city: sale.city,
-        })),
-      )
-      .select('*')
+    const { data, error } = await insertSalesToCloud(normalizedBatch)
 
     if (error) {
       setSyncStatus('degraded')
@@ -254,21 +280,7 @@ export const SalesProvider = ({ children }) => {
       return true
     }
 
-    const { data, error } = await supabase
-      .from(SALES_TABLE)
-      .insert(
-        normalizedBatch.map((sale) => ({
-          date: sale.date,
-          product_id: sale.productId,
-          quantity: sale.quantity,
-          unit_price: sale.unitPrice,
-          unit_profit: sale.unitProfit,
-          unit_cost: sale.unitCost,
-          customer: sale.customer,
-          city: sale.city,
-        })),
-      )
-      .select('*')
+    const { data, error } = await insertSalesToCloud(normalizedBatch)
 
     if (error) {
       console.error('Supabase insert failed:', error.message, '| Code:', error.code)
