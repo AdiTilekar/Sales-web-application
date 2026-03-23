@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import FlavorCard from '../components/FlavorCard'
 import ToastNotification from '../components/ToastNotification'
 import { useSales } from '../context/SalesContext'
-import { getLocalISODate } from '../utils/date'
+import { getLocalISODate, toLocalDateKey } from '../utils/date'
 import { handleImageError } from '../utils/image'
 
 const AddSale = () => {
@@ -18,6 +18,7 @@ const AddSale = () => {
   const [searchInput, setSearchInput] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const [cartItems, setCartItems] = useState([])
+  const lastKnownTodayRef = useRef(getLocalISODate())
 
   const selectedProduct = products.find((product) => product.id === selectedProductId)
 
@@ -62,6 +63,20 @@ const AddSale = () => {
     }
   }, [isSheetOpen])
 
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const latestToday = getLocalISODate()
+      if (latestToday === lastKnownTodayRef.current) return
+
+      setDate((previousDate) =>
+        previousDate === lastKnownTodayRef.current ? latestToday : previousDate,
+      )
+      lastKnownTodayRef.current = latestToday
+    }, 60_000)
+
+    return () => clearInterval(timer)
+  }, [])
+
   const openSheet = (productId) => {
     setSelectedProductId(productId)
     setQuantity('')
@@ -86,13 +101,14 @@ const AddSale = () => {
   const handleSubmit = async (event) => {
     event.preventDefault()
     if (!selectedProductId || !quantity || Number(quantity) <= 0) return
+    const effectiveDate = toLocalDateKey(date) || getLocalISODate()
 
     const isSaved = await addSale({
       productId: selectedProductId,
       quantity: Number(quantity),
       customer: customer.trim() || 'Walk-in Customer',
       city: city.trim() || 'Pune',
-      date,
+      date: effectiveDate,
     })
 
     if (!isSaved) {
@@ -147,13 +163,14 @@ const AddSale = () => {
 
   const handleCartCheckout = async () => {
     if (cartDetails.detailedItems.length === 0) return
+    const effectiveDate = toLocalDateKey(date) || getLocalISODate()
 
     const salesPayload = cartDetails.detailedItems.map((item) => ({
         productId: item.productId,
         quantity: item.quantity,
         customer: customer.trim() || 'Walk-in Customer',
         city: city.trim() || 'Pune',
-        date,
+        date: effectiveDate,
       }))
 
     const allSaved = await addSalesBatch(salesPayload)

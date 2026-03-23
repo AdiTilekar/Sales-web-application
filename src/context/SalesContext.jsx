@@ -37,12 +37,14 @@ const productById = PRODUCTS.reduce((acc, product) => ({ ...acc, [product.id]: p
 
 const normalizeSaleForStorage = (sale) => {
   const product = productById[sale.productId]
+  const normalizedDate = toLocalDateKey(sale.date) || getLocalISODate()
   const unitPrice = Number(sale.unitPrice ?? product?.price ?? 0)
   const unitProfit = Number(sale.unitProfit ?? product?.profitPerUnit ?? 0)
   const unitCost = Number(sale.unitCost ?? Math.max(0, unitPrice - unitProfit))
 
   return {
     ...sale,
+    date: normalizedDate,
     unitPrice,
     unitProfit,
     unitCost,
