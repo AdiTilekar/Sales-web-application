@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import { PRODUCTS } from '../data/products'
 import { isSupabaseConfigured, supabase } from '../lib/supabaseClient'
+import { getLocalISODate } from '../utils/date'
 
 const STORAGE_KEY = 'kulfi-sales-records-v2'
 const LEGACY_STORAGE_KEYS = ['kulfi-sales-records-v1']
@@ -8,7 +9,7 @@ const SALES_TABLE = 'sales'
 
 const SalesContext = createContext(null)
 
-const getTodayDate = () => new Date().toISOString().split('T')[0]
+const getTodayDate = () => getLocalISODate()
 
 const filterSalesForToday = (rows) => {
   const today = getTodayDate()
@@ -25,9 +26,28 @@ const mapRowToSale = (row) => ({
   date: row.date,
   productId: row.product_id,
   quantity: row.quantity,
+  unitPrice: row.unit_price ?? null,
+  unitProfit: row.unit_profit ?? null,
+  unitCost: row.unit_cost ?? null,
   customer: row.customer || 'Walk-in Customer',
   city: row.city || 'Pune',
 })
+
+const productById = PRODUCTS.reduce((acc, product) => ({ ...acc, [product.id]: product }), {})
+
+const normalizeSaleForStorage = (sale) => {
+  const product = productById[sale.productId]
+  const unitPrice = Number(sale.unitPrice ?? product?.price ?? 0)
+  const unitProfit = Number(sale.unitProfit ?? product?.profitPerUnit ?? 0)
+  const unitCost = Number(sale.unitCost ?? Math.max(0, unitPrice - unitProfit))
+
+  return {
+    ...sale,
+    unitPrice,
+    unitProfit,
+    unitCost,
+  }
+}
 
 const sortSales = (rows) =>
   [...rows].sort((a, b) => {
@@ -44,6 +64,9 @@ const upsertSale = (rows, incoming) => {
   next[index] = incoming
   return sortSales(next)
 }
+
+const upsertManySales = (rows, incomingRows) =>
+  incomingRows.reduce((acc, sale) => upsertSale(acc, sale), rows)
 
 const readLocalSales = () => {
   const hasLegacySales = LEGACY_STORAGE_KEYS.some((key) => localStorage.getItem(key))
@@ -135,42 +158,52 @@ export const SalesProvider = ({ children }) => {
   const todaySales = useMemo(() => filterSalesForToday(allSales), [allSales])
   const historySales = useMemo(() => filterSalesForHistory(allSales), [allSales])
 
-  const addSale = async (sale) => {
+  const addSalesBatch = async (salesBatch) => {
+    if (!Array.isArray(salesBatch) || salesBatch.length === 0) return true
+    const normalizedBatch = salesBatch.map(normalizeSaleForStorage)
+
     if (!isSupabaseConfigured || !supabase) {
-      const localSale = {
+      const localSales = normalizedBatch.map((sale) => ({
         id: `local-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
         ...sale,
-      }
-      setAllSales((prev) => upsertSale(prev, localSale))
+      }))
+      setAllSales((prev) => upsertManySales(prev, localSales))
       return true
     }
 
     const { data, error } = await supabase
       .from(SALES_TABLE)
-      .insert({
-        date: sale.date,
-        product_id: sale.productId,
-        quantity: sale.quantity,
-        customer: sale.customer,
-        city: sale.city,
-      })
+      .insert(
+        normalizedBatch.map((sale) => ({
+          date: sale.date,
+          product_id: sale.productId,
+          quantity: sale.quantity,
+          unit_price: sale.unitPrice,
+          unit_profit: sale.unitProfit,
+          unit_cost: sale.unitCost,
+          customer: sale.customer,
+          city: sale.city,
+        })),
+      )
       .select('*')
-      .single()
 
     if (error) {
       console.error('Supabase insert failed:', error.message, '| Code:', error.code)
-      // Fall back: save locally so the sale is never lost
-      const fallbackSale = {
+      // Fall back: save locally so the sales are never lost
+      const fallbackSales = normalizedBatch.map((sale) => ({
         id: `local-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
         ...sale,
-      }
-      setAllSales((prev) => upsertSale(prev, fallbackSale))
+      }))
+      setAllSales((prev) => upsertManySales(prev, fallbackSales))
       return true
     }
 
-    setAllSales((prev) => upsertSale(prev, mapRowToSale(data)))
+    const insertedSales = (data || []).map(mapRowToSale)
+    setAllSales((prev) => upsertManySales(prev, insertedSales))
     return true
   }
+
+  const addSale = async (sale) => addSalesBatch([sale])
 
   const deleteSale = async (id) => {
     if (!isSupabaseConfigured || !supabase) {
@@ -199,6 +232,7 @@ export const SalesProvider = ({ children }) => {
     historySales,
     allSales,
     addSale,
+    addSalesBatch,
     deleteSale,
     clearSales,
     isLoading,

@@ -3,7 +3,6 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
-  
   Line,
   LineChart,
   ResponsiveContainer,
@@ -12,73 +11,91 @@ import {
   YAxis,
 } from 'recharts'
 import MetricCard from '../components/MetricCard'
-import ViewModeSwitch from '../components/ViewModeSwitch'
 import { useSales } from '../context/SalesContext'
+import { getLocalISODate } from '../utils/date'
+import { aggregateFinance, getProfitMarginPercent, getSaleFinance } from '../utils/finance'
 
 const formatCurrency = (value) => `₹${value.toLocaleString('en-IN')}`
 
 const Dashboard = () => {
-  const { sales, productMap } = useSales()
+  const { sales, allSales, productMap } = useSales()
 
   const metrics = useMemo(() => {
-    const totalRevenue = sales.reduce(
-      (sum, sale) => sum + sale.quantity * (productMap[sale.productId]?.price || 0),
-      0,
-    )
-    const totalUnits = sales.reduce((sum, sale) => sum + sale.quantity, 0)
+    const totals = aggregateFinance(sales, productMap)
+    const totalRevenue = totals.revenue
+    const totalCost = totals.cost
+    const totalProfit = totals.profit
+    const totalUnits = totals.units
     const avgOrderValue = sales.length ? Math.round(totalRevenue / sales.length) : 0
+    const profitMargin = getProfitMarginPercent(totalProfit, totalRevenue)
 
-    const flavorTotals = sales.reduce((acc, sale) => {
-      acc[sale.productId] = (acc[sale.productId] || 0) + sale.quantity
+    const flavorProfitTotals = sales.reduce((acc, sale) => {
+      const product = productMap[sale.productId]
+      const { profit } = getSaleFinance(sale, product)
+      acc[sale.productId] = (acc[sale.productId] || 0) + profit
       return acc
     }, {})
 
-    const topFlavorId = Object.entries(flavorTotals).sort((a, b) => b[1] - a[1])[0]?.[0]
+    const topFlavorId = Object.entries(flavorProfitTotals).sort((a, b) => b[1] - a[1])[0]?.[0]
     const topFlavor = topFlavorId ? productMap[topFlavorId]?.name : '-'
 
-    return { totalRevenue, totalUnits, avgOrderValue, topFlavor }
+    return { totalRevenue, totalCost, totalProfit, profitMargin, totalUnits, avgOrderValue, topFlavor }
   }, [productMap, sales])
 
-  const monthlyRevenue = useMemo(() => {
+  const monthlyFinance = useMemo(() => {
     const map = new Map()
 
-    sales.forEach((sale) => {
+    allSales.forEach((sale) => {
       const date = new Date(sale.date)
-      const key = `${date.getFullYear()}-${date.getMonth()}`
+      const monthNumber = String(date.getMonth() + 1).padStart(2, '0')
+      const key = `${date.getFullYear()}-${monthNumber}`
       const label = date.toLocaleDateString('en-IN', { month: 'short' })
-      const revenue = sale.quantity * (productMap[sale.productId]?.price || 0)
-      map.set(key, { month: label, revenue: (map.get(key)?.revenue || 0) + revenue })
+      const product = productMap[sale.productId]
+      const { revenue, profit } = getSaleFinance(sale, product)
+      map.set(key, {
+        month: label,
+        revenue: (map.get(key)?.revenue || 0) + revenue,
+        profit: (map.get(key)?.profit || 0) + profit,
+      })
     })
 
     return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0])).map((item) => item[1])
-  }, [productMap, sales])
+  }, [allSales, productMap])
 
   const topFlavors = useMemo(() => {
     const flavorRevenue = sales.reduce((acc, sale) => {
       const product = productMap[sale.productId]
-      const revenue = sale.quantity * (product?.price || 0)
-      acc[sale.productId] = (acc[sale.productId] || 0) + revenue
+      const { profit } = getSaleFinance(sale, product)
+      acc[sale.productId] = (acc[sale.productId] || 0) + profit
       return acc
     }, {})
 
     return Object.entries(flavorRevenue)
-      .map(([id, revenue]) => ({ name: productMap[id]?.name || id, revenue }))
-      .sort((a, b) => b.revenue - a.revenue)
+      .map(([id, profit]) => ({ name: productMap[id]?.name || id, profit }))
+      .sort((a, b) => b.profit - a.profit)
       .slice(0, 7)
       .reverse()
   }, [productMap, sales])
 
   const dailyTrend = useMemo(() => {
-    const today = new Date().toISOString().split('T')[0]
-    const revenue = sales.reduce((sum, sale) => {
-      if (sale.date !== today) return sum
-      return sum + sale.quantity * (productMap[sale.productId]?.price || 0)
-    }, 0)
+    const today = getLocalISODate()
+    const totals = sales.reduce(
+      (acc, sale) => {
+        if (sale.date !== today) return acc
+        const product = productMap[sale.productId]
+        const finance = getSaleFinance(sale, product)
+        acc.revenue += finance.revenue
+        acc.profit += finance.profit
+        return acc
+      },
+      { revenue: 0, profit: 0 },
+    )
 
     return [
       {
         date: new Date(today).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }),
-        revenue,
+        revenue: totals.revenue,
+        profit: totals.profit,
       },
     ]
   }, [productMap, sales])
@@ -90,28 +107,29 @@ const Dashboard = () => {
         <p>Track today&apos;s revenue, units, and top-performing flavors.</p>
       </div>
 
-      <ViewModeSwitch />
-
       <div className="metrics-grid">
         <MetricCard
           title="Total Revenue"
           value={formatCurrency(metrics.totalRevenue)}
           subtitle="Today&apos;s recorded orders"
         />
+        <MetricCard title="Total Cost" value={formatCurrency(metrics.totalCost)} subtitle="Estimated production cost" />
+        <MetricCard title="Total Profit" value={formatCurrency(metrics.totalProfit)} subtitle="Revenue minus cost" />
+        <MetricCard title="Profit Margin" value={`${metrics.profitMargin.toFixed(1)}%`} subtitle="Net from sales value" />
         <MetricCard title="Units Sold" value={metrics.totalUnits.toLocaleString('en-IN')} subtitle="Total kulfi sticks" />
         <MetricCard
           title="Avg Order Value"
           value={formatCurrency(metrics.avgOrderValue)}
           subtitle="Revenue per order"
         />
-        <MetricCard title="Top Flavor" value={metrics.topFlavor} subtitle="Highest units sold" />
+        <MetricCard title="Top Profit Flavor" value={metrics.topFlavor} subtitle="Highest profit contribution" />
       </div>
 
       <div className="chart-grid">
         <article className="glass-card chart-card">
-          <h2>Today&apos;s Revenue Snapshot</h2>
+          <h2>Revenue vs Profit Snapshot</h2>
           <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={monthlyRevenue}>
+            <BarChart data={monthlyFinance}>
               <CartesianGrid stroke="rgba(255,255,255,0.12)" strokeDasharray="4 4" />
               <XAxis dataKey="month" tick={{ fill: '#fff' }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fill: '#fff' }} axisLine={false} tickLine={false} />
@@ -121,12 +139,13 @@ const Dashboard = () => {
                 formatter={(value) => formatCurrency(value)}
               />
               <Bar dataKey="revenue" fill="#F2A623" radius={[8, 8, 0, 0]} />
+              <Bar dataKey="profit" fill="#3ecf8e" radius={[8, 8, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </article>
 
         <article className="glass-card chart-card">
-          <h2>Top 7 Flavors by Revenue</h2>
+          <h2>Top 7 Flavors by Profit</h2>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={topFlavors} layout="vertical">
               <CartesianGrid stroke="rgba(255,255,255,0.12)" strokeDasharray="4 4" />
@@ -137,13 +156,13 @@ const Dashboard = () => {
                 labelStyle={{ color: '#fff' }}
                 formatter={(value) => formatCurrency(value)}
               />
-              <Bar dataKey="revenue" fill="#F2A623" radius={[0, 10, 10, 0]} />
+              <Bar dataKey="profit" fill="#3ecf8e" radius={[0, 10, 10, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </article>
 
         <article className="glass-card chart-card chart-card-wide">
-          <h2>Today&apos;s Sales Trend</h2>
+          <h2>Today&apos;s Revenue and Profit Trend</h2>
           <ResponsiveContainer width="100%" height={320}>
             <LineChart data={dailyTrend}>
               <CartesianGrid stroke="rgba(255,255,255,0.12)" strokeDasharray="4 4" />
@@ -155,6 +174,7 @@ const Dashboard = () => {
                 formatter={(value) => formatCurrency(value)}
               />
               <Line type="monotone" dataKey="revenue" stroke="#F2A623" strokeWidth={3} dot={{ r: 2, fill: '#F2A623' }} />
+              <Line type="monotone" dataKey="profit" stroke="#3ecf8e" strokeWidth={3} dot={{ r: 2, fill: '#3ecf8e' }} />
             </LineChart>
           </ResponsiveContainer>
         </article>

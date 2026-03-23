@@ -1,3 +1,5 @@
+import { handleImageError } from '../utils/image'
+
 const FlavorCard = ({ product, selected, onSelect }) => {
   return (
     <button
@@ -7,7 +9,7 @@ const FlavorCard = ({ product, selected, onSelect }) => {
     >
       <div className="flavor-visual">
         <div className="flavor-halo" />
-        <img src={product.image} alt={product.name} className="flavor-image" loading="lazy" />
+        <img src={product.image} alt={product.name} className="flavor-image" loading="lazy" onError={handleImageError} />
         <span className="price-tag">₹{product.price}</span>
       </div>
 

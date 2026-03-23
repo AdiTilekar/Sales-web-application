@@ -2,15 +2,17 @@ import { useEffect, useMemo, useState } from 'react'
 import FlavorCard from '../components/FlavorCard'
 import ToastNotification from '../components/ToastNotification'
 import { useSales } from '../context/SalesContext'
+import { getLocalISODate } from '../utils/date'
+import { handleImageError } from '../utils/image'
 
 const AddSale = () => {
-  const { products, addSale } = useSales()
+  const { products, addSale, addSalesBatch } = useSales()
   const [selectedProductId, setSelectedProductId] = useState('')
   const [isSheetOpen, setIsSheetOpen] = useState(false)
   const [quantity, setQuantity] = useState('')
   const [customer, setCustomer] = useState('')
   const [city, setCity] = useState('')
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0])
+  const [date, setDate] = useState(getLocalISODate())
   const [showToast, setShowToast] = useState(false)
   const [toastMessage, setToastMessage] = useState('✓ Sale recorded!')
   const [searchInput, setSearchInput] = useState('')
@@ -102,7 +104,7 @@ const AddSale = () => {
     setQuantity('')
     setCustomer('')
     setCity('')
-    setDate(new Date().toISOString().split('T')[0])
+    setDate(getLocalISODate())
     closeSheet()
     setToastMessage('✓ Sale recorded!')
     setShowToast(true)
@@ -146,20 +148,15 @@ const AddSale = () => {
   const handleCartCheckout = async () => {
     if (cartDetails.detailedItems.length === 0) return
 
-    let allSaved = true
-    for (const item of cartDetails.detailedItems) {
-      const saved = await addSale({
+    const salesPayload = cartDetails.detailedItems.map((item) => ({
         productId: item.productId,
         quantity: item.quantity,
         customer: customer.trim() || 'Walk-in Customer',
         city: city.trim() || 'Pune',
         date,
-      })
-      if (!saved) {
-        allSaved = false
-        break
-      }
-    }
+      }))
+
+    const allSaved = await addSalesBatch(salesPayload)
 
     if (!allSaved) {
       setToastMessage('Could not save full cart. Check connection and try again.')
@@ -170,7 +167,7 @@ const AddSale = () => {
     setCartItems([])
     setCustomer('')
     setCity('')
-    setDate(new Date().toISOString().split('T')[0])
+    setDate(getLocalISODate())
     setToastMessage('✓ Cart sales recorded!')
     setShowToast(true)
   }
@@ -305,7 +302,12 @@ const AddSale = () => {
 
             <div className="sheet-header">
               <div className="sheet-product">
-                <img src={selectedProduct.image} alt={selectedProduct.name} className="sheet-product-image" />
+                <img
+                  src={selectedProduct.image}
+                  alt={selectedProduct.name}
+                  className="sheet-product-image"
+                  onError={handleImageError}
+                />
                 <div>
                   <h3>{selectedProduct.name}</h3>
                   <p>₹{selectedProduct.price.toLocaleString('en-IN')} per unit</p>

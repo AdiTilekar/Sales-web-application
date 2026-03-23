@@ -1,4 +1,5 @@
 import { PRODUCTS } from '../data/products'
+import { getLocalISODate } from './date'
 
 const CUSTOMERS = [
   'Ganesh Sweets',
@@ -35,7 +36,7 @@ export const generateSeedSales = (days = 60) => {
   for (let dayOffset = days - 1; dayOffset >= 0; dayOffset -= 1) {
     const currentDate = new Date(now)
     currentDate.setDate(now.getDate() - dayOffset)
-    const dateStr = currentDate.toISOString().split('T')[0]
+    const dateStr = getLocalISODate(currentDate)
     const ordersCount = randomBetween(4, 10)
 
     for (let i = 0; i < ordersCount; i += 1) {

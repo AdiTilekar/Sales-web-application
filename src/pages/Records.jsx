@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import ViewModeSwitch from '../components/ViewModeSwitch'
 import { useSales } from '../context/SalesContext'
+import { handleImageError } from '../utils/image'
 
 const ROWS_PER_PAGE = 20
 
@@ -35,11 +36,12 @@ const Records = () => {
   }, [filteredSales, productMap])
 
   const pageCount = Math.max(1, Math.ceil(filteredSales.length / ROWS_PER_PAGE))
+  const activePage = Math.min(page, pageCount)
 
   const currentRows = useMemo(() => {
-    const startIndex = (page - 1) * ROWS_PER_PAGE
+    const startIndex = (activePage - 1) * ROWS_PER_PAGE
     return filteredSales.slice(startIndex, startIndex + ROWS_PER_PAGE)
-  }, [filteredSales, page])
+  }, [activePage, filteredSales])
 
   const resetFilters = () => {
     setFlavorFilter('all')
@@ -53,7 +55,10 @@ const Records = () => {
     const label = `${product?.name || 'Unknown flavor'} on ${new Date(sale.date).toLocaleDateString('en-IN')}`
     const shouldDelete = window.confirm(`Delete sale: ${label}?`)
     if (!shouldDelete) return
-    await deleteSale(sale.id)
+    const isDeleted = await deleteSale(sale.id)
+    if (!isDeleted) {
+      window.alert('Could not delete sale. Your current access does not allow delete in cloud mode.')
+    }
   }
 
   const exportAsExcel = () => {
@@ -200,7 +205,7 @@ const Records = () => {
                     <td>{new Date(sale.date).toLocaleDateString('en-IN')}</td>
                     <td>
                       <div className="flavor-cell">
-                        <img src={product?.image} alt={product?.name} />
+                        <img src={product?.image} alt={product?.name} onError={handleImageError} />
                         <span>{product?.name}</span>
                       </div>
                     </td>
@@ -243,7 +248,7 @@ const Records = () => {
               <article key={sale.id} className="glass-card mobile-sale-card">
                 <div className="mobile-sale-top">
                   <div className="flavor-cell">
-                    <img src={product?.image} alt={product?.name} />
+                    <img src={product?.image} alt={product?.name} onError={handleImageError} />
                     <div>
                       <strong>{product?.name || sale.productId}</strong>
                       <p>{new Date(sale.date).toLocaleDateString('en-IN')}</p>
@@ -270,7 +275,7 @@ const Records = () => {
           Prev
         </button>
         <span>
-          Page {page} of {pageCount}
+          Page {activePage} of {pageCount}
         </span>
         <button
           type="button"
