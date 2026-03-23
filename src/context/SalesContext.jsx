@@ -96,8 +96,10 @@ export const SalesProvider = ({ children }) => {
 
   useEffect(() => {
     const loadSales = async () => {
+      const localSales = readLocalSales()
+
       if (!isSupabaseConfigured || !supabase) {
-        setAllSales(readLocalSales())
+        setAllSales(localSales)
         setIsLoading(false)
         return
       }
@@ -110,9 +112,11 @@ export const SalesProvider = ({ children }) => {
 
       if (error) {
         console.error('Failed to load sales from Supabase:', error.message)
-        setAllSales(readLocalSales())
+        setAllSales(localSales)
       } else {
-        setAllSales(sortSales((data || []).map(mapRowToSale)))
+        const remoteSales = sortSales((data || []).map(mapRowToSale))
+        // Keep locally cached fallback sales visible after refresh when cloud insert failed.
+        setAllSales(upsertManySales(remoteSales, localSales))
       }
 
       setIsLoading(false)
