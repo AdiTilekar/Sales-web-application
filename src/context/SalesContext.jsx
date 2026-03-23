@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { PRODUCTS } from '../data/products'
 import { isSupabaseConfigured, supabase } from '../lib/supabaseClient'
 import { getLocalISODate, toLocalDateKey } from '../utils/date'
@@ -70,6 +70,8 @@ const upsertSale = (rows, incoming) => {
 const upsertManySales = (rows, incomingRows) =>
   incomingRows.reduce((acc, sale) => upsertSale(acc, sale), rows)
 
+const isLocalOnlySale = (sale) => String(sale.id || '').startsWith('local-')
+
 const readLocalSales = () => {
   const hasLegacySales = LEGACY_STORAGE_KEYS.some((key) => localStorage.getItem(key))
 
@@ -93,6 +95,47 @@ const readLocalSales = () => {
 export const SalesProvider = ({ children }) => {
   const [allSales, setAllSales] = useState([])
   const [isLoading, setIsLoading] = useState(true)
+  const [syncStatus, setSyncStatus] = useState(isSupabaseConfigured ? 'checking' : 'local')
+  const [lastSyncError, setLastSyncError] = useState('')
+  const isSyncingPendingRef = useRef(false)
+
+  const syncPendingLocalSales = async (pendingSales) => {
+    if (!isSupabaseConfigured || !supabase || pendingSales.length === 0) return false
+
+    const normalizedBatch = pendingSales.map(normalizeSaleForStorage)
+    const pendingIds = new Set(normalizedBatch.map((sale) => sale.id))
+
+    const { data, error } = await supabase
+      .from(SALES_TABLE)
+      .insert(
+        normalizedBatch.map((sale) => ({
+          date: sale.date,
+          product_id: sale.productId,
+          quantity: sale.quantity,
+          unit_price: sale.unitPrice,
+          unit_profit: sale.unitProfit,
+          unit_cost: sale.unitCost,
+          customer: sale.customer,
+          city: sale.city,
+        })),
+      )
+      .select('*')
+
+    if (error) {
+      setSyncStatus('degraded')
+      setLastSyncError(error.message || 'Cloud sync failed')
+      return false
+    }
+
+    const insertedSales = (data || []).map(mapRowToSale)
+    setAllSales((prev) => {
+      const withoutPending = prev.filter((sale) => !pendingIds.has(sale.id))
+      return upsertManySales(withoutPending, insertedSales)
+    })
+    setSyncStatus('cloud')
+    setLastSyncError('')
+    return true
+  }
 
   useEffect(() => {
     const loadSales = async () => {
@@ -100,6 +143,8 @@ export const SalesProvider = ({ children }) => {
 
       if (!isSupabaseConfigured || !supabase) {
         setAllSales(localSales)
+        setSyncStatus('local')
+        setLastSyncError('')
         setIsLoading(false)
         return
       }
@@ -113,10 +158,24 @@ export const SalesProvider = ({ children }) => {
       if (error) {
         console.error('Failed to load sales from Supabase:', error.message)
         setAllSales(localSales)
+        setSyncStatus('degraded')
+        setLastSyncError(error.message || 'Unable to load cloud sales')
       } else {
         const remoteSales = sortSales((data || []).map(mapRowToSale))
         // Keep locally cached fallback sales visible after refresh when cloud insert failed.
-        setAllSales(upsertManySales(remoteSales, localSales))
+        const mergedSales = upsertManySales(remoteSales, localSales)
+        setAllSales(mergedSales)
+
+        const pendingLocalSales = mergedSales.filter(isLocalOnlySale)
+        if (pendingLocalSales.length > 0) {
+          const synced = await syncPendingLocalSales(pendingLocalSales)
+          if (!synced) {
+            setSyncStatus('degraded')
+          }
+        } else {
+          setSyncStatus('cloud')
+          setLastSyncError('')
+        }
       }
 
       setIsLoading(false)
@@ -153,6 +212,22 @@ export const SalesProvider = ({ children }) => {
   }, [])
 
   useEffect(() => {
+    if (!isSupabaseConfigured || !supabase || isLoading) return undefined
+
+    const pendingLocalSales = allSales.filter(isLocalOnlySale)
+    if (pendingLocalSales.length === 0) return undefined
+
+    const retryTimer = setTimeout(async () => {
+      if (isSyncingPendingRef.current) return
+      isSyncingPendingRef.current = true
+      await syncPendingLocalSales(pendingLocalSales)
+      isSyncingPendingRef.current = false
+    }, 1500)
+
+    return () => clearTimeout(retryTimer)
+  }, [allSales, isLoading])
+
+  useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(allSales))
   }, [allSales])
 
@@ -174,6 +249,8 @@ export const SalesProvider = ({ children }) => {
         ...sale,
       }))
       setAllSales((prev) => upsertManySales(prev, localSales))
+      setSyncStatus('local')
+      setLastSyncError('')
       return true
     }
 
@@ -201,11 +278,15 @@ export const SalesProvider = ({ children }) => {
         ...sale,
       }))
       setAllSales((prev) => upsertManySales(prev, fallbackSales))
+      setSyncStatus('degraded')
+      setLastSyncError(error.message || 'Insert failed in cloud mode')
       return true
     }
 
     const insertedSales = (data || []).map(mapRowToSale)
     setAllSales((prev) => upsertManySales(prev, insertedSales))
+    setSyncStatus('cloud')
+    setLastSyncError('')
     return true
   }
 
@@ -242,7 +323,10 @@ export const SalesProvider = ({ children }) => {
     deleteSale,
     clearSales,
     isLoading,
-    isCloudSyncEnabled: isSupabaseConfigured,
+    isCloudSyncEnabled: syncStatus === 'cloud',
+    hasCloudConfig: isSupabaseConfigured,
+    syncStatus,
+    lastSyncError,
     products: PRODUCTS,
     productMap,
     todayDate: getTodayDate(),

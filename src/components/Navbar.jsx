@@ -4,7 +4,25 @@ import { useSales } from '../context/SalesContext'
 import { handleImageError, LOGO_FALLBACK_IMAGE } from '../utils/image'
 
 const Navbar = () => {
-  const { isCloudSyncEnabled } = useSales()
+  const { syncStatus, lastSyncError } = useSales()
+
+  const statusLabel =
+    syncStatus === 'cloud'
+      ? 'Cloud Sync OK'
+      : syncStatus === 'checking'
+        ? 'Checking Sync'
+        : syncStatus === 'degraded'
+          ? 'Cloud Issue (Local Saved)'
+          : 'Fallback Local'
+
+  const statusClass =
+    syncStatus === 'cloud'
+      ? 'online'
+      : syncStatus === 'checking'
+        ? 'checking'
+        : syncStatus === 'degraded'
+          ? 'degraded'
+          : 'local'
 
   return (
     <header className="navbar glass-card">
@@ -16,9 +34,14 @@ const Navbar = () => {
           onError={(event) => handleImageError(event, LOGO_FALLBACK_IMAGE)}
         />
         <h1 className="brand-name">🍦 Shree Ganesh Kulfi</h1>
-        <span className={`sync-badge ${isCloudSyncEnabled ? 'online' : 'local'}`} role="status" aria-live="polite">
+        <span
+          className={`sync-badge ${statusClass}`}
+          role="status"
+          aria-live="polite"
+          title={lastSyncError || statusLabel}
+        >
           <span className="dot" aria-hidden="true" />
-          {isCloudSyncEnabled ? 'Cloud Sync OK' : 'Fallback Local'}
+          {statusLabel}
         </span>
       </div>
 
