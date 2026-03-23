@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import {
   Bar,
   BarChart,
@@ -12,13 +12,15 @@ import {
 } from 'recharts'
 import MetricCard from '../components/MetricCard'
 import { useSales } from '../context/SalesContext'
-import { getLocalISODate } from '../utils/date'
+import { getLocalISODate, toLocalDateKey } from '../utils/date'
 import { aggregateFinance, getProfitMarginPercent, getSaleFinance } from '../utils/finance'
 
 const formatCurrency = (value) => `₹${value.toLocaleString('en-IN')}`
+const TREND_WINDOWS = [7, 30, 90]
 
 const Dashboard = () => {
   const { sales, allSales, productMap } = useSales()
+  const [trendDays, setTrendDays] = useState(30)
 
   const metrics = useMemo(() => {
     const totals = aggregateFinance(sales, productMap)
@@ -78,27 +80,37 @@ const Dashboard = () => {
   }, [productMap, sales])
 
   const dailyTrend = useMemo(() => {
-    const today = getLocalISODate()
-    const totals = sales.reduce(
-      (acc, sale) => {
-        if (sale.date !== today) return acc
-        const product = productMap[sale.productId]
-        const finance = getSaleFinance(sale, product)
-        acc.revenue += finance.revenue
-        acc.profit += finance.profit
-        return acc
-      },
-      { revenue: 0, profit: 0 },
-    )
+    const dayMap = new Map()
 
-    return [
-      {
-        date: new Date(today).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }),
+    allSales.forEach((sale) => {
+      const dayKey = toLocalDateKey(sale.date)
+      if (!dayKey) return
+
+      const product = productMap[sale.productId]
+      const finance = getSaleFinance(sale, product)
+      const current = dayMap.get(dayKey) || { revenue: 0, profit: 0 }
+      dayMap.set(dayKey, {
+        revenue: current.revenue + finance.revenue,
+        profit: current.profit + finance.profit,
+      })
+    })
+
+    const trend = []
+    for (let offset = trendDays - 1; offset >= 0; offset -= 1) {
+      const date = new Date()
+      date.setDate(date.getDate() - offset)
+      const dayKey = getLocalISODate(date)
+      const totals = dayMap.get(dayKey) || { revenue: 0, profit: 0 }
+
+      trend.push({
+        date: date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }),
         revenue: totals.revenue,
         profit: totals.profit,
-      },
-    ]
-  }, [productMap, sales])
+      })
+    }
+
+    return trend
+  }, [allSales, productMap, trendDays])
 
   return (
     <section className="page page-enter">
@@ -162,7 +174,22 @@ const Dashboard = () => {
         </article>
 
         <article className="glass-card chart-card chart-card-wide">
-          <h2>Today&apos;s Revenue and Profit Trend</h2>
+          <div className="chart-card-header">
+            <h2>Revenue and Profit Trend</h2>
+            <div className="trend-range-toggle" role="group" aria-label="Select trend chart date range">
+              {TREND_WINDOWS.map((days) => (
+                <button
+                  key={days}
+                  type="button"
+                  className={trendDays === days ? 'active' : ''}
+                  onClick={() => setTrendDays(days)}
+                  aria-pressed={trendDays === days}
+                >
+                  Last {days} days
+                </button>
+              ))}
+            </div>
+          </div>
           <ResponsiveContainer width="100%" height={320}>
             <LineChart data={dailyTrend}>
               <CartesianGrid stroke="rgba(255,255,255,0.12)" strokeDasharray="4 4" />

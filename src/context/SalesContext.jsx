@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import { PRODUCTS } from '../data/products'
 import { isSupabaseConfigured, supabase } from '../lib/supabaseClient'
-import { getLocalISODate } from '../utils/date'
+import { getLocalISODate, toLocalDateKey } from '../utils/date'
 
 const STORAGE_KEY = 'kulfi-sales-records-v2'
 const LEGACY_STORAGE_KEYS = ['kulfi-sales-records-v1']
@@ -13,12 +13,12 @@ const getTodayDate = () => getLocalISODate()
 
 const filterSalesForToday = (rows) => {
   const today = getTodayDate()
-  return rows.filter((sale) => sale.date === today)
+  return rows.filter((sale) => toLocalDateKey(sale.date) === today)
 }
 
 const filterSalesForHistory = (rows) => {
   const today = getTodayDate()
-  return rows.filter((sale) => sale.date !== today)
+  return rows.filter((sale) => toLocalDateKey(sale.date) !== today)
 }
 
 const mapRowToSale = (row) => ({

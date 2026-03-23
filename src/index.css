@@ -224,6 +224,49 @@ select {
   margin-bottom: 1rem;
 }
 
+.chart-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.chart-card-header h2 {
+  margin-bottom: 0;
+}
+
+.trend-range-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.2rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(9, 14, 30, 0.85);
+}
+
+.trend-range-toggle button {
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.78rem;
+  padding: 0.34rem 0.62rem;
+  cursor: pointer;
+  transition: color 0.2s ease, background-color 0.2s ease;
+}
+
+.trend-range-toggle button:hover {
+  color: #fff;
+}
+
+.trend-range-toggle button.active {
+  color: var(--accent);
+  background: rgba(242, 166, 35, 0.15);
+}
+
 .chart-card-wide {
   grid-column: span 2;
 }
@@ -1024,6 +1067,23 @@ select:focus {
 
   .sheet-actions {
     grid-template-columns: 1fr;
+  }
+
+  .chart-card-header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+
+  .trend-range-toggle {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .trend-range-toggle button {
+    min-height: 38px;
+    text-align: center;
   }
 
   .filter-actions {
