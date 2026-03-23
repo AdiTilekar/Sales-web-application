@@ -104,6 +104,7 @@ select {
 .brand-wrap {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 0.65rem;
 }
 
@@ -118,6 +119,42 @@ select {
 .brand-name {
   font-size: 1.08rem;
   font-weight: 600;
+}
+
+.sync-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.78rem;
+  line-height: 1;
+  border-radius: 999px;
+  padding: 0.32rem 0.56rem;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--muted);
+}
+
+.sync-badge .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #f2a623;
+}
+
+.sync-badge.online {
+  color: #7ee7b2;
+  border-color: rgba(62, 207, 142, 0.45);
+  background: rgba(62, 207, 142, 0.12);
+}
+
+.sync-badge.online .dot {
+  background: #3ecf8e;
+}
+
+.sync-badge.local {
+  color: #ffd57f;
+  border-color: rgba(242, 166, 35, 0.4);
+  background: rgba(242, 166, 35, 0.12);
 }
 
 .nav-links {
@@ -992,6 +1029,10 @@ select:focus {
     min-height: 42px;
     display: inline-flex;
     align-items: center;
+  }
+
+  .sync-badge {
+    font-size: 0.74rem;
   }
 
   .view-mode-switch {
