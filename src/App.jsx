@@ -7,11 +7,19 @@ import FlavorAnalysis from './pages/FlavorAnalysis'
 import History from './pages/History'
 
 function App() {
-  const { isLoading } = useSales()
+  const { isLoading, syncStatus, lastSyncError } = useSales()
 
   return (
     <div className="app-shell">
       <Navbar />
+      {syncStatus === 'degraded' ? (
+        <section className="glass-card sync-alert" role="alert" aria-live="assertive">
+          <p>
+            Cloud sync is failing. New sales are saved locally on this device only.
+            {lastSyncError ? ` Error: ${lastSyncError}` : ''}
+          </p>
+        </section>
+      ) : null}
       <main className="app-main">
         {isLoading ? (
           <section className="page page-enter">

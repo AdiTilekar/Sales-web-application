@@ -64,6 +64,18 @@ select {
   gap: 1.2rem;
 }
 
+.sync-alert {
+  padding: 0.7rem 0.9rem;
+  border-color: rgba(239, 83, 80, 0.45);
+  background: rgba(239, 83, 80, 0.12);
+}
+
+.sync-alert p {
+  color: #ffb3a6;
+  font-size: 0.88rem;
+  line-height: 1.4;
+}
+
 .glass-card {
   background: var(--card);
   border: 1px solid var(--card-border);
