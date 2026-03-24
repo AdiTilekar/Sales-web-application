@@ -5,6 +5,8 @@ import AddSale from './pages/AddSale'
 import Dashboard from './pages/Dashboard'
 import FlavorAnalysis from './pages/FlavorAnalysis'
 import History from './pages/History'
+import Records from './pages/Records'
+import Reports from './pages/Reports'
 
 function App() {
   const { isLoading, syncStatus, lastSyncError } = useSales()
@@ -32,7 +34,9 @@ function App() {
             <Route path="/" element={<Navigate to="/add" replace />} />
             <Route path="/add" element={<AddSale />} />
             <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/records" element={<Records />} />
             <Route path="/history" element={<History />} />
+            <Route path="/reports" element={<Reports />} />
             <Route path="/flavors" element={<FlavorAnalysis />} />
             <Route path="*" element={<Navigate to="/add" replace />} />
           </Routes>

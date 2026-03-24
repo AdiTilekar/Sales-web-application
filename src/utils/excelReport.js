@@ -56,6 +56,19 @@ export const downloadExcelReport = async ({
   addDetailSheet(XLSX, workbook, detailSheetName, headers, rows)
 
   const fileDate = new Date().toISOString().slice(0, 10)
-  XLSX.writeFile(workbook, `${filePrefix}_${fileDate}.xlsx`)
-  return true
+  const fileName = `${filePrefix}_${fileDate}.xlsx`
+  const workbookBuffer = XLSX.write(workbook, { type: 'array', bookType: 'xlsx' })
+  const blob = new Blob([workbookBuffer], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  })
+  const link = document.createElement('a')
+  const url = URL.createObjectURL(blob)
+  link.href = url
+  link.download = fileName
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
+
+  return { fileName, sizeBytes: blob.size }
 }

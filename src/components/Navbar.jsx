@@ -51,6 +51,7 @@ const Navbar = () => {
           Dashboard
         </NavLink>
         <NavLink to="/history">History</NavLink>
+        <NavLink to="/reports">Reports</NavLink>
         <NavLink to="/flavors">Flavor Analysis</NavLink>
       </nav>
     </header>
