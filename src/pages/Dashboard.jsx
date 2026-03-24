@@ -172,7 +172,7 @@ const Dashboard = () => {
   const dailyTrend = useMemo(() => {
     const dayMap = new Map()
 
-    filteredSales.forEach((sale) => {
+    allSales.forEach((sale) => {
       const dayKey = toLocalDateKey(sale.date)
       if (!dayKey) return
 
@@ -186,8 +186,9 @@ const Dashboard = () => {
     })
 
     const trend = []
-    const startDate = parseDateKey(activeRange.startKey)
-    const endDate = parseDateKey(activeRange.endKey)
+    const allDateKeys = [...dayMap.keys()].sort((a, b) => a.localeCompare(b))
+    const startDate = parseDateKey(allDateKeys[0])
+    const endDate = parseDateKey(allDateKeys[allDateKeys.length - 1])
     if (!startDate || !endDate) return trend
 
     for (let cursor = new Date(startDate); cursor <= endDate; cursor.setDate(cursor.getDate() + 1)) {
@@ -202,7 +203,7 @@ const Dashboard = () => {
     }
 
     return trend
-  }, [activeRange.endKey, activeRange.startKey, filteredSales, productMap])
+  }, [allSales, productMap])
 
   return (
     <section className="page page-enter">
@@ -304,7 +305,7 @@ const Dashboard = () => {
         </article>
 
         <article className="glass-card chart-card chart-card-wide">
-          <h2>Revenue and Profit Trend</h2>
+          <h2>Revenue and Profit Trend (All Time)</h2>
           <ResponsiveContainer width="100%" height={320}>
             <LineChart data={dailyTrend}>
               <CartesianGrid stroke="rgba(255,255,255,0.12)" strokeDasharray="4 4" />
