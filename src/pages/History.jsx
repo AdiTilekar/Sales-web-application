@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import MetricCard from '../components/MetricCard'
 import { useSales } from '../context/SalesContext'
 import { handleImageError } from '../utils/image'
+import { downloadExcelReport } from '../utils/excelReport'
 import { aggregateFinance, getProfitMarginPercent, getSaleFinance } from '../utils/finance'
 
 const ROWS_PER_PAGE = 20
@@ -66,10 +67,8 @@ const History = () => {
     }
   }
 
-  const exportAsExcel = () => {
+  const exportAsExcel = async () => {
     if (filteredSales.length === 0) return
-
-    const escapeCsv = (value) => `"${String(value ?? '').replaceAll('"', '""')}"`
 
     const headers = ['Date', 'Flavor', 'Quantity', 'Price per Unit', 'Revenue', 'Cost', 'Profit', 'Profit Margin %', 'Customer', 'City']
 
@@ -82,11 +81,9 @@ const History = () => {
     })
 
     const summaryRows = [
-      ['Generated On', new Date().toLocaleString('en-IN')],
       ['Filter Flavor', flavorFilter === 'all' ? 'All flavors' : productMap[flavorFilter]?.name || flavorFilter],
       ['Filter Date From', fromDate || '-'],
       ['Filter Date To', toDate || '-'],
-      ['Total Rows', filteredSales.length],
       ['Total Units', totals.units],
       ['Total Revenue', totals.revenue],
       ['Total Cost', totals.cost],
@@ -95,25 +92,14 @@ const History = () => {
       ['Covered Days', totals.days.size],
     ]
 
-    const csvLines = [
-      headers.map(escapeCsv).join(','),
-      ...dataRows.map((row) => row.map(escapeCsv).join(',')),
-      '',
-      '"Summary"',
-      ...summaryRows.map((row) => row.map(escapeCsv).join(',')),
-    ]
-    const csvContent = `\uFEFF${csvLines.join('\n')}`
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-
-    const fileDate = new Date().toISOString().slice(0, 10)
-    link.href = url
-    link.download = `kulfi_sales_today_history_${fileDate}.csv`
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    URL.revokeObjectURL(url)
+    await downloadExcelReport({
+      reportTitle: 'Kulfi Sales History Report',
+      filePrefix: 'kulfi_sales_today_history',
+      headers,
+      rows: dataRows,
+      summaryRows,
+      detailSheetName: 'History Details',
+    })
   }
 
   return (

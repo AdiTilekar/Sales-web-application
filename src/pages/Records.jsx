@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import ViewModeSwitch from '../components/ViewModeSwitch'
 import { useSales } from '../context/SalesContext'
+import { downloadExcelReport } from '../utils/excelReport'
 import { handleImageError } from '../utils/image'
 
 const ROWS_PER_PAGE = 20
@@ -61,10 +62,8 @@ const Records = () => {
     }
   }
 
-  const exportAsExcel = () => {
+  const exportAsExcel = async () => {
     if (filteredSales.length === 0) return
-
-    const escapeCsv = (value) => `"${String(value ?? '').replaceAll('"', '""')}"`
 
     const headers = ['Date', 'Flavor', 'Quantity', 'Price per Unit', 'Revenue', 'Customer', 'City']
 
@@ -77,34 +76,21 @@ const Records = () => {
     })
 
     const summaryRows = [
-      ['Generated On', new Date().toLocaleString('en-IN')],
       ['Filter Flavor', flavorFilter === 'all' ? 'All flavors' : productMap[flavorFilter]?.name || flavorFilter],
       ['Filter Date From', fromDate || '-'],
       ['Filter Date To', toDate || '-'],
-      ['Total Rows', filteredSales.length],
       ['Total Units', totals.units],
       ['Total Revenue', totals.revenue],
     ]
 
-    const csvLines = [
-      headers.map(escapeCsv).join(','),
-      ...dataRows.map((row) => row.map(escapeCsv).join(',')),
-      '',
-      '"Summary"',
-      ...summaryRows.map((row) => row.map(escapeCsv).join(',')),
-    ]
-    const csvContent = `\uFEFF${csvLines.join('\n')}`
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-
-    const fileDate = new Date().toISOString().slice(0, 10)
-    link.href = url
-    link.download = `kulfi_sales_report_${fileDate}.csv`
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    URL.revokeObjectURL(url)
+    await downloadExcelReport({
+      reportTitle: 'Kulfi Sales Records Report',
+      filePrefix: 'kulfi_sales_report',
+      headers,
+      rows: dataRows,
+      summaryRows,
+      detailSheetName: 'Record Details',
+    })
   }
 
   return (
