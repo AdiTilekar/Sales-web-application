@@ -820,6 +820,52 @@ select:focus {
   align-items: end;
 }
 
+.dashboard-filter-bar {
+  padding: 0.8rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.dashboard-range-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.dashboard-range-buttons button {
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+  background: rgba(9, 14, 30, 0.85);
+  color: var(--muted);
+  padding: 0.44rem 0.8rem;
+  min-height: 38px;
+  cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease, background-color 0.2s ease;
+}
+
+.dashboard-range-buttons button:hover {
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+.dashboard-range-buttons button.active {
+  color: var(--accent);
+  border-color: rgba(242, 166, 35, 0.55);
+  background: rgba(242, 166, 35, 0.16);
+}
+
+.dashboard-custom-range {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(160px, 1fr));
+  gap: 0.7rem;
+}
+
+.dashboard-range-subtitle {
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
 .filter-actions {
   display: flex;
   gap: 0.5rem;
@@ -1097,6 +1143,15 @@ select:focus {
   .form-grid,
   .filter-bar,
   .sale-details-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-range-buttons {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-custom-range {
     grid-template-columns: 1fr;
   }
 

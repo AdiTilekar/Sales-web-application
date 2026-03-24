@@ -16,22 +16,112 @@ import { getLocalISODate, toLocalDateKey } from '../utils/date'
 import { aggregateFinance, getProfitMarginPercent, getSaleFinance } from '../utils/finance'
 
 const formatCurrency = (value) => `₹${value.toLocaleString('en-IN')}`
-const TREND_WINDOWS = [7, 30, 90]
+const RANGE_OPTIONS = ['today', 'yesterday', 'week', 'month', 'custom']
+
+const parseDateKey = (value) => {
+  if (!value) return null
+  const [year, month, day] = value.split('-').map(Number)
+  if (!year || !month || !day) return null
+  return new Date(year, month - 1, day)
+}
+
+const getStartOfWeek = (date) => {
+  const start = new Date(date)
+  const day = start.getDay()
+  const diff = day === 0 ? 6 : day - 1
+  start.setHours(0, 0, 0, 0)
+  start.setDate(start.getDate() - diff)
+  return start
+}
 
 const Dashboard = () => {
-  const { sales, allSales, productMap } = useSales()
-  const [trendDays, setTrendDays] = useState(30)
+  const { allSales, productMap } = useSales()
+  const [rangeType, setRangeType] = useState('today')
+  const [customFrom, setCustomFrom] = useState('')
+  const [customTo, setCustomTo] = useState('')
+
+  const activeRange = useMemo(() => {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+
+    if (rangeType === 'yesterday') {
+      const yesterday = new Date(today)
+      yesterday.setDate(today.getDate() - 1)
+      return {
+        startKey: getLocalISODate(yesterday),
+        endKey: getLocalISODate(yesterday),
+      }
+    }
+
+    if (rangeType === 'week') {
+      const weekStart = getStartOfWeek(today)
+      return {
+        startKey: getLocalISODate(weekStart),
+        endKey: getLocalISODate(today),
+      }
+    }
+
+    if (rangeType === 'month') {
+      const monthStart = new Date(today.getFullYear(), today.getMonth(), 1)
+      return {
+        startKey: getLocalISODate(monthStart),
+        endKey: getLocalISODate(today),
+      }
+    }
+
+    if (rangeType === 'custom') {
+      const from = customFrom || customTo
+      const to = customTo || customFrom
+      if (!from && !to) {
+        const todayKey = getLocalISODate(today)
+        return { startKey: todayKey, endKey: todayKey }
+      }
+
+      const fromDate = parseDateKey(from)
+      const toDate = parseDateKey(to)
+      if (!fromDate || !toDate) {
+        const todayKey = getLocalISODate(today)
+        return { startKey: todayKey, endKey: todayKey }
+      }
+
+      const startDate = fromDate <= toDate ? fromDate : toDate
+      const endDate = fromDate <= toDate ? toDate : fromDate
+      return {
+        startKey: getLocalISODate(startDate),
+        endKey: getLocalISODate(endDate),
+      }
+    }
+
+    const todayKey = getLocalISODate(today)
+    return { startKey: todayKey, endKey: todayKey }
+  }, [customFrom, customTo, rangeType])
+
+  const filteredSales = useMemo(() => {
+    return allSales.filter((sale) => {
+      const dayKey = toLocalDateKey(sale.date)
+      if (!dayKey) return false
+      return dayKey >= activeRange.startKey && dayKey <= activeRange.endKey
+    })
+  }, [activeRange.endKey, activeRange.startKey, allSales])
+
+  const rangeSubtitle = useMemo(() => {
+    if (activeRange.startKey === activeRange.endKey) {
+      return new Date(activeRange.startKey).toLocaleDateString('en-IN')
+    }
+
+    return `${new Date(activeRange.startKey).toLocaleDateString('en-IN')} - ${new Date(activeRange.endKey).toLocaleDateString('en-IN')}`
+  }, [activeRange.endKey, activeRange.startKey])
 
   const metrics = useMemo(() => {
-    const totals = aggregateFinance(sales, productMap)
+    const totals = aggregateFinance(filteredSales, productMap)
     const totalRevenue = totals.revenue
     const totalCost = totals.cost
     const totalProfit = totals.profit
     const totalUnits = totals.units
-    const avgOrderValue = sales.length ? Math.round(totalRevenue / sales.length) : 0
+    const avgOrderValue = filteredSales.length ? Math.round(totalRevenue / filteredSales.length) : 0
     const profitMargin = getProfitMarginPercent(totalProfit, totalRevenue)
 
-    const flavorProfitTotals = sales.reduce((acc, sale) => {
+    const flavorProfitTotals = filteredSales.reduce((acc, sale) => {
       const product = productMap[sale.productId]
       const { profit } = getSaleFinance(sale, product)
       acc[sale.productId] = (acc[sale.productId] || 0) + profit
@@ -42,12 +132,12 @@ const Dashboard = () => {
     const topFlavor = topFlavorId ? productMap[topFlavorId]?.name : '-'
 
     return { totalRevenue, totalCost, totalProfit, profitMargin, totalUnits, avgOrderValue, topFlavor }
-  }, [productMap, sales])
+  }, [filteredSales, productMap])
 
   const monthlyFinance = useMemo(() => {
     const map = new Map()
 
-    allSales.forEach((sale) => {
+    filteredSales.forEach((sale) => {
       const date = new Date(sale.date)
       const monthNumber = String(date.getMonth() + 1).padStart(2, '0')
       const key = `${date.getFullYear()}-${monthNumber}`
@@ -62,10 +152,10 @@ const Dashboard = () => {
     })
 
     return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0])).map((item) => item[1])
-  }, [allSales, productMap])
+  }, [filteredSales, productMap])
 
   const topFlavors = useMemo(() => {
-    const flavorRevenue = sales.reduce((acc, sale) => {
+    const flavorRevenue = filteredSales.reduce((acc, sale) => {
       const product = productMap[sale.productId]
       const { profit } = getSaleFinance(sale, product)
       acc[sale.productId] = (acc[sale.productId] || 0) + profit
@@ -77,12 +167,12 @@ const Dashboard = () => {
       .sort((a, b) => b.profit - a.profit)
       .slice(0, 7)
       .reverse()
-  }, [productMap, sales])
+  }, [filteredSales, productMap])
 
   const dailyTrend = useMemo(() => {
     const dayMap = new Map()
 
-    allSales.forEach((sale) => {
+    filteredSales.forEach((sale) => {
       const dayKey = toLocalDateKey(sale.date)
       if (!dayKey) return
 
@@ -96,34 +186,74 @@ const Dashboard = () => {
     })
 
     const trend = []
-    for (let offset = trendDays - 1; offset >= 0; offset -= 1) {
-      const date = new Date()
-      date.setDate(date.getDate() - offset)
-      const dayKey = getLocalISODate(date)
+    const startDate = parseDateKey(activeRange.startKey)
+    const endDate = parseDateKey(activeRange.endKey)
+    if (!startDate || !endDate) return trend
+
+    for (let cursor = new Date(startDate); cursor <= endDate; cursor.setDate(cursor.getDate() + 1)) {
+      const dayKey = getLocalISODate(cursor)
       const totals = dayMap.get(dayKey) || { revenue: 0, profit: 0 }
 
       trend.push({
-        date: date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }),
+        date: cursor.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }),
         revenue: totals.revenue,
         profit: totals.profit,
       })
     }
 
     return trend
-  }, [allSales, productMap, trendDays])
+  }, [activeRange.endKey, activeRange.startKey, filteredSales, productMap])
 
   return (
     <section className="page page-enter">
       <div className="page-header">
         <h2>Dashboard</h2>
-        <p>Track today&apos;s revenue, units, and top-performing flavors.</p>
+        <p>Track revenue, units, and flavor performance by date range.</p>
+      </div>
+
+      <div className="glass-card dashboard-filter-bar">
+        <div className="dashboard-range-buttons" role="group" aria-label="Select dashboard date range">
+          {RANGE_OPTIONS.map((option) => (
+            <button
+              key={option}
+              type="button"
+              className={rangeType === option ? 'active' : ''}
+              onClick={() => setRangeType(option)}
+            >
+              {option === 'today'
+                ? 'Today'
+                : option === 'yesterday'
+                  ? 'Yesterday'
+                  : option === 'week'
+                    ? 'This Week'
+                    : option === 'month'
+                      ? 'This Month'
+                      : 'Custom Range'}
+            </button>
+          ))}
+        </div>
+
+        {rangeType === 'custom' ? (
+          <div className="dashboard-custom-range">
+            <label>
+              From
+              <input type="date" value={customFrom} onChange={(event) => setCustomFrom(event.target.value)} />
+            </label>
+            <label>
+              To
+              <input type="date" value={customTo} onChange={(event) => setCustomTo(event.target.value)} />
+            </label>
+          </div>
+        ) : null}
+
+        <p className="dashboard-range-subtitle">Range: {rangeSubtitle}</p>
       </div>
 
       <div className="metrics-grid">
         <MetricCard
           title="Total Revenue"
           value={formatCurrency(metrics.totalRevenue)}
-          subtitle="Today&apos;s recorded orders"
+          subtitle="For selected date range"
         />
         <MetricCard title="Total Cost" value={formatCurrency(metrics.totalCost)} subtitle="Estimated production cost" />
         <MetricCard title="Total Profit" value={formatCurrency(metrics.totalProfit)} subtitle="Revenue minus cost" />
@@ -174,22 +304,7 @@ const Dashboard = () => {
         </article>
 
         <article className="glass-card chart-card chart-card-wide">
-          <div className="chart-card-header">
-            <h2>Revenue and Profit Trend</h2>
-            <div className="trend-range-toggle" role="group" aria-label="Select trend chart date range">
-              {TREND_WINDOWS.map((days) => (
-                <button
-                  key={days}
-                  type="button"
-                  className={trendDays === days ? 'active' : ''}
-                  onClick={() => setTrendDays(days)}
-                  aria-pressed={trendDays === days}
-                >
-                  Last {days} days
-                </button>
-              ))}
-            </div>
-          </div>
+          <h2>Revenue and Profit Trend</h2>
           <ResponsiveContainer width="100%" height={320}>
             <LineChart data={dailyTrend}>
               <CartesianGrid stroke="rgba(255,255,255,0.12)" strokeDasharray="4 4" />
