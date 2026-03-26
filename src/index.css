@@ -18,6 +18,8 @@
 
 html {
   scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 body {
@@ -402,6 +404,17 @@ select {
 
 .quick-list-header span {
   color: var(--muted);
+}
+
+.quick-list-header h3,
+.quick-list-header span,
+.quick-list-copy p,
+.quick-list-copy small {
+  text-align: left;
+}
+
+.quick-list-header span {
+  margin-left: 0;
 }
 
 .quick-list-grid {
@@ -1539,6 +1552,25 @@ select:focus {
     gap: 0.3rem;
   }
 
+  .page-header,
+  .page-header h2,
+  .page-header p,
+  .quick-list-header,
+  .quick-list-header h3,
+  .quick-list-header span,
+  .quick-list-copy,
+  .quick-list-copy p,
+  .quick-list-copy small,
+  .quick-list-floating-add p {
+    text-align: left;
+  }
+
+  .quick-list-header h3,
+  .quick-list-header span {
+    display: block;
+    width: 100%;
+  }
+
   .quick-list-row {
     grid-template-columns: 1fr;
     gap: 0.55rem;
@@ -1547,6 +1579,7 @@ select:focus {
   .quick-list-controls {
     grid-template-columns: 38px minmax(0, 1fr) 38px auto;
     gap: 0.38rem;
+    align-items: center;
   }
 
   .quick-list-controls .stepper-btn {
@@ -1562,6 +1595,11 @@ select:focus {
   .quick-list-qty-input {
     width: 54px;
     padding: 0.28rem 0.34rem;
+  }
+
+  .quick-list-qty-badge,
+  .quick-list-qty-input {
+    line-height: 1.2;
   }
 
   .quick-list-floating-spacer {
@@ -1762,6 +1800,20 @@ select:focus {
 @media (max-width: 420px) {
   .flavor-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .quick-list-header h3 {
+    font-size: 0.96rem;
+  }
+
+  .quick-list-header span,
+  .quick-list-copy small,
+  .quick-list-floating-add p {
+    font-size: 0.82rem;
+  }
+
+  .quick-list-controls {
+    grid-template-columns: 36px minmax(0, 1fr) 36px auto;
   }
 
   .price-tag {
