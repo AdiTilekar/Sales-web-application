@@ -347,6 +347,167 @@ select {
   align-items: stretch;
 }
 
+.entry-mode-toggle {
+  padding: 0.35rem;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.4rem;
+}
+
+.entry-mode-toggle button {
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+  background: rgba(9, 14, 30, 0.8);
+  color: var(--muted);
+  min-height: 42px;
+  cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease, background-color 0.2s ease;
+}
+
+.entry-mode-toggle button:hover {
+  border-color: rgba(255, 255, 255, 0.38);
+  color: #fff;
+}
+
+.entry-mode-toggle button.active {
+  border-color: rgba(242, 166, 35, 0.55);
+  color: var(--accent);
+  background: rgba(242, 166, 35, 0.14);
+}
+
+.quick-list-panel {
+  padding: 0.8rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.quick-list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.quick-list-header span {
+  color: var(--muted);
+}
+
+.quick-list-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.quick-list-row {
+  padding: 0.68rem;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
+  display: grid;
+  grid-template-columns: minmax(160px, 1.2fr) minmax(260px, 2fr);
+  gap: 0.8rem;
+  align-items: center;
+}
+
+.quick-list-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.quick-list-copy p {
+  font-weight: 600;
+}
+
+.quick-list-copy small {
+  color: var(--muted);
+}
+
+.quick-list-controls {
+  display: grid;
+  grid-template-columns: 42px 1fr 42px auto;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.quick-list-controls .stepper-btn {
+  height: 40px;
+  font-size: 1.2rem;
+}
+
+.quick-list-controls input[type='range'] {
+  width: 100%;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.quick-list-qty-badge {
+  min-width: 40px;
+  text-align: center;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  font-weight: 600;
+  padding: 0.38rem 0.55rem;
+}
+
+.quick-list-summary {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.quick-list-summary p {
+  padding: 0.35rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.quick-list-floating-spacer {
+  height: 78px;
+}
+
+.quick-list-floating-add {
+  position: fixed;
+  right: 1rem;
+  bottom: calc(0.9rem + env(safe-area-inset-bottom));
+  z-index: 34;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(9, 14, 30, 0.96);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.34);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  max-width: min(92vw, 640px);
+}
+
+.quick-list-floating-add p {
+  color: var(--muted);
+  font-size: 0.86rem;
+  white-space: nowrap;
+}
+
+.quick-list-floating-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.quick-list-floating-actions .outline-btn,
+.quick-list-floating-actions .cta-btn {
+  min-height: 40px;
+}
+
 .mobile-help {
   padding: 0.85rem 1rem;
   color: var(--muted);
@@ -425,7 +586,7 @@ select {
 .flavor-search {
   padding: 0.75rem;
   display: grid;
-  grid-template-columns: 1fr auto auto;
+  grid-template-columns: 1fr auto;
   gap: 0.6rem;
   align-items: center;
 }
@@ -1218,6 +1379,7 @@ select:focus {
 
   .sale-details-panel,
   .cart-panel,
+  .quick-list-panel,
   .mobile-help,
   .flavor-search {
     padding: 0.75rem;
@@ -1297,6 +1459,69 @@ select:focus {
 
   .flavor-search {
     grid-template-columns: 1fr;
+  }
+
+  .entry-mode-toggle {
+    grid-template-columns: 1fr;
+  }
+
+  .quick-list-header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+
+  .quick-list-row {
+    grid-template-columns: 1fr;
+    gap: 0.55rem;
+  }
+
+  .quick-list-controls {
+    grid-template-columns: 38px 1fr 38px auto;
+    gap: 0.38rem;
+  }
+
+  .quick-list-controls .stepper-btn {
+    height: 36px;
+    font-size: 1rem;
+  }
+
+  .quick-list-qty-badge {
+    min-width: 34px;
+    padding: 0.28rem 0.45rem;
+  }
+
+  .quick-list-floating-spacer {
+    height: 130px;
+  }
+
+  .quick-list-floating-add {
+    left: 0.55rem;
+    right: 0.55rem;
+    bottom: calc(0.55rem + env(safe-area-inset-bottom));
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.45rem;
+    padding: 0.6rem;
+  }
+
+  .quick-list-floating-add.with-mobile-checkout {
+    bottom: calc(4.8rem + env(safe-area-inset-bottom));
+  }
+
+  .quick-list-floating-add p {
+    white-space: normal;
+  }
+
+  .quick-list-floating-actions {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .quick-list-floating-actions .outline-btn,
+  .quick-list-floating-actions .cta-btn {
+    width: 100%;
   }
 
   .flavor-search .cta-btn,

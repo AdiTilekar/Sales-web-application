@@ -16,17 +16,18 @@ const AddSale = () => {
   const [showToast, setShowToast] = useState(false)
   const [toastMessage, setToastMessage] = useState('✓ Sale recorded!')
   const [searchInput, setSearchInput] = useState('')
-  const [searchQuery, setSearchQuery] = useState('')
+  const [entryMode, setEntryMode] = useState('card')
+  const [listQuantities, setListQuantities] = useState({})
   const [cartItems, setCartItems] = useState([])
   const lastKnownTodayRef = useRef(getLocalISODate())
 
   const selectedProduct = products.find((product) => product.id === selectedProductId)
 
   const filteredProducts = useMemo(() => {
-    if (!searchQuery.trim()) return products
-    const normalized = searchQuery.trim().toLowerCase()
+    if (!searchInput.trim()) return products
+    const normalized = searchInput.trim().toLowerCase()
     return products.filter((product) => product.name.toLowerCase().includes(normalized))
-  }, [products, searchQuery])
+  }, [products, searchInput])
 
   const cartDetails = useMemo(() => {
     const detailedItems = cartItems
@@ -46,6 +47,26 @@ const AddSale = () => {
 
     return { detailedItems, totalAmount, totalUnits }
   }, [cartItems, products])
+
+  const quickListSummary = useMemo(() => {
+    const selectedRows = filteredProducts
+      .map((product) => {
+        const qty = Number(listQuantities[product.id] || 0)
+        if (qty <= 0) return null
+        return {
+          product,
+          quantity: qty,
+          amount: qty * product.price,
+        }
+      })
+      .filter(Boolean)
+
+    const selectedFlavors = selectedRows.length
+    const selectedUnits = selectedRows.reduce((sum, item) => sum + item.quantity, 0)
+    const selectedAmount = selectedRows.reduce((sum, item) => sum + item.amount, 0)
+
+    return { selectedRows, selectedFlavors, selectedUnits, selectedAmount }
+  }, [filteredProducts, listQuantities])
 
   useEffect(() => {
     if (!showToast) return undefined
@@ -152,6 +173,56 @@ const AddSale = () => {
     setCartItems((prev) => prev.filter((item) => item.productId !== productId))
   }
 
+  const normalizeListQty = (value) => {
+    const parsed = Number(value)
+    if (Number.isNaN(parsed)) return 0
+    return Math.max(0, Math.min(10, parsed))
+  }
+
+  const updateListQty = (productId, value) => {
+    const normalized = normalizeListQty(value)
+    setListQuantities((prev) => ({
+      ...prev,
+      [productId]: normalized,
+    }))
+  }
+
+  const increaseListQty = (productId) => {
+    updateListQty(productId, Number(listQuantities[productId] || 0) + 1)
+  }
+
+  const decreaseListQty = (productId) => {
+    updateListQty(productId, Number(listQuantities[productId] || 0) - 1)
+  }
+
+  const addListSelectionToCart = () => {
+    if (quickListSummary.selectedRows.length === 0) return
+
+    setCartItems((prev) => {
+      const next = [...prev]
+      quickListSummary.selectedRows.forEach((row) => {
+        const existingIndex = next.findIndex((item) => item.productId === row.product.id)
+        if (existingIndex >= 0) {
+          next[existingIndex] = {
+            ...next[existingIndex],
+            quantity: next[existingIndex].quantity + row.quantity,
+          }
+          return
+        }
+        next.push({ productId: row.product.id, quantity: row.quantity })
+      })
+      return next
+    })
+
+    setToastMessage('Selected quick-list items added to cart')
+    setShowToast(true)
+    setListQuantities({})
+  }
+
+  const clearListSelection = () => {
+    setListQuantities({})
+  }
+
   const handleClearCart = () => {
     if (cartItems.length === 0) return
     const shouldClear = window.confirm('Clear all items from the cart?')
@@ -189,14 +260,8 @@ const AddSale = () => {
     setShowToast(true)
   }
 
-  const handleSearch = (event) => {
-    event.preventDefault()
-    setSearchQuery(searchInput)
-  }
-
   const clearSearch = () => {
     setSearchInput('')
-    setSearchQuery('')
   }
 
   return (
@@ -206,8 +271,33 @@ const AddSale = () => {
         <p>Select flavor, add quantity, then complete checkout quickly.</p>
       </div>
 
+      <div className="glass-card entry-mode-toggle" role="tablist" aria-label="Entry mode switch">
+        <button
+          type="button"
+          className={entryMode === 'card' ? 'active' : ''}
+          onClick={() => setEntryMode('card')}
+          role="tab"
+          aria-selected={entryMode === 'card'}
+        >
+          Card View
+        </button>
+        <button
+          type="button"
+          className={entryMode === 'quick-list' ? 'active' : ''}
+          onClick={() => setEntryMode('quick-list')}
+          role="tab"
+          aria-selected={entryMode === 'quick-list'}
+        >
+          Quick List View
+        </button>
+      </div>
+
       <div className="glass-card mobile-help">
-        <p>Select a kulfi below to open the sale window.</p>
+        <p>
+          {entryMode === 'card'
+            ? 'Select a kulfi below to open the sale window.'
+            : 'Set quantity bars quickly and add selected flavors to cart in one tap.'}
+        </p>
       </div>
 
       <div className="glass-card cart-panel">
@@ -254,32 +344,102 @@ const AddSale = () => {
         )}
       </div>
 
-      <form className="glass-card flavor-search" onSubmit={handleSearch}>
+      <form className="glass-card flavor-search" onSubmit={(event) => event.preventDefault()}>
         <input
           type="text"
           value={searchInput}
           onChange={(event) => setSearchInput(event.target.value)}
-          placeholder="Search flavor..."
+          placeholder="Type to search flavor..."
           aria-label="Search flavor"
         />
-        <button type="submit" className="cta-btn">
-          Search Flavor
-        </button>
         <button type="button" className="outline-btn" onClick={clearSearch}>
           Clear
         </button>
       </form>
 
-      <div className="flavor-grid">
-        {filteredProducts.map((product) => (
-          <FlavorCard
-            key={product.id}
-            product={product}
-            selected={selectedProductId === product.id && isSheetOpen}
-            onSelect={openSheet}
-          />
-        ))}
-      </div>
+      {entryMode === 'card' ? (
+        <div className="flavor-grid">
+          {filteredProducts.map((product) => (
+            <FlavorCard
+              key={product.id}
+              product={product}
+              selected={selectedProductId === product.id && isSheetOpen}
+              onSelect={openSheet}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="glass-card quick-list-panel">
+          <div className="quick-list-header">
+            <h3>Quick Quantity List</h3>
+            <span>{filteredProducts.length.toLocaleString('en-IN')} flavors</span>
+          </div>
+
+          <div className="quick-list-grid">
+            {filteredProducts.map((product) => {
+              const qty = Number(listQuantities[product.id] || 0)
+              return (
+                <div className="quick-list-row" key={product.id}>
+                  <div className="quick-list-copy">
+                    <p>{product.name}</p>
+                    <small>₹{product.price.toLocaleString('en-IN')} each</small>
+                  </div>
+
+                  <div className="quick-list-controls">
+                    <button type="button" className="stepper-btn" onClick={() => decreaseListQty(product.id)}>
+                      -
+                    </button>
+
+                    <input
+                      type="range"
+                      min="0"
+                      max="10"
+                      value={qty}
+                      onChange={(event) => updateListQty(product.id, event.target.value)}
+                      aria-label={`${product.name} quantity`}
+                    />
+
+                    <button type="button" className="stepper-btn" onClick={() => increaseListQty(product.id)}>
+                      +
+                    </button>
+
+                    <span className="quick-list-qty-badge">{qty}</span>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
+          <div className="quick-list-summary">
+            <p>{quickListSummary.selectedFlavors.toLocaleString('en-IN')} selected flavors</p>
+            <p>{quickListSummary.selectedUnits.toLocaleString('en-IN')} units</p>
+            <p>₹{quickListSummary.selectedAmount.toLocaleString('en-IN')}</p>
+          </div>
+
+          {quickListSummary.selectedUnits > 0 ? <div className="quick-list-floating-spacer" aria-hidden="true" /> : null}
+        </div>
+      )}
+
+      {entryMode === 'quick-list' && quickListSummary.selectedUnits > 0 ? (
+        <div
+          className={`quick-list-floating-add ${cartDetails.detailedItems.length > 0 ? 'with-mobile-checkout' : ''}`}
+          role="region"
+          aria-label="Quick add selected flavors"
+        >
+          <p>
+            {quickListSummary.selectedUnits.toLocaleString('en-IN')} units • ₹
+            {quickListSummary.selectedAmount.toLocaleString('en-IN')}
+          </p>
+          <div className="quick-list-floating-actions">
+            <button type="button" className="outline-btn" onClick={clearListSelection}>
+              Reset
+            </button>
+            <button type="button" className="cta-btn" onClick={addListSelectionToCart}>
+              Add Selected to Cart
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       {filteredProducts.length === 0 ? (
         <div className="glass-card mobile-help">
@@ -312,7 +472,7 @@ const AddSale = () => {
         </div>
       </div>
 
-      {isSheetOpen && selectedProduct ? (
+      {entryMode === 'card' && isSheetOpen && selectedProduct ? (
         <div className="sheet-backdrop" onClick={closeSheet}>
           <form className="glass-card sale-sheet" onSubmit={handleSubmit} onClick={(event) => event.stopPropagation()}>
             <div className="sheet-handle" />
