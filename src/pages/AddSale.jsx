@@ -6,7 +6,7 @@ import { getLocalISODate, toLocalDateKey } from '../utils/date'
 import { handleImageError } from '../utils/image'
 
 const AddSale = () => {
-  const { products, addSale, addSalesBatch } = useSales()
+  const { products, allSales, addSale, addSalesBatch } = useSales()
   const [selectedProductId, setSelectedProductId] = useState('')
   const [isSheetOpen, setIsSheetOpen] = useState(false)
   const [quantity, setQuantity] = useState('')
@@ -31,6 +31,23 @@ const AddSale = () => {
     return products.filter((product) => product.name.toLowerCase().includes(normalized))
   }, [products, searchInput])
 
+  const demandByProductId = useMemo(() => {
+    return allSales.reduce((acc, sale) => {
+      const quantity = Number(sale.quantity || 0)
+      if (!quantity) return acc
+      acc[sale.productId] = (acc[sale.productId] || 0) + quantity
+      return acc
+    }, {})
+  }, [allSales])
+
+  const quickListProducts = useMemo(() => {
+    return [...filteredProducts].sort((a, b) => {
+      const demandDiff = (demandByProductId[b.id] || 0) - (demandByProductId[a.id] || 0)
+      if (demandDiff !== 0) return demandDiff
+      return a.name.localeCompare(b.name)
+    })
+  }, [filteredProducts, demandByProductId])
+
   const cartDetails = useMemo(() => {
     const detailedItems = cartItems
       .map((item) => {
@@ -51,7 +68,7 @@ const AddSale = () => {
   }, [cartItems, products])
 
   const quickListSummary = useMemo(() => {
-    const selectedRows = filteredProducts
+    const selectedRows = quickListProducts
       .map((product) => {
         const qty = Number(listQuantities[product.id] || 0)
         if (qty <= 0) return null
@@ -68,7 +85,7 @@ const AddSale = () => {
     const selectedAmount = selectedRows.reduce((sum, item) => sum + item.amount, 0)
 
     return { selectedRows, selectedFlavors, selectedUnits, selectedAmount }
-  }, [filteredProducts, listQuantities])
+  }, [quickListProducts, listQuantities])
 
   useEffect(() => {
     if (!showToast) return undefined
@@ -402,11 +419,11 @@ const AddSale = () => {
         <div className="glass-card quick-list-panel">
           <div className="quick-list-header">
             <h3>Quick Quantity List</h3>
-            <span>{filteredProducts.length.toLocaleString('en-IN')} flavors</span>
+            <span>{quickListProducts.length.toLocaleString('en-IN')} flavors</span>
           </div>
 
           <div className="quick-list-grid">
-            {filteredProducts.map((product) => {
+            {quickListProducts.map((product) => {
               const qty = Number(listQuantities[product.id] || 0)
               const sliderQty = Math.min(qty, 10)
               const isEditingQty = editingListProductId === product.id
