@@ -18,6 +18,8 @@ const AddSale = () => {
   const [searchInput, setSearchInput] = useState('')
   const [entryMode, setEntryMode] = useState('card')
   const [listQuantities, setListQuantities] = useState({})
+  const [editingListProductId, setEditingListProductId] = useState('')
+  const [editingListQuantity, setEditingListQuantity] = useState('')
   const [cartItems, setCartItems] = useState([])
   const lastKnownTodayRef = useRef(getLocalISODate())
 
@@ -176,7 +178,7 @@ const AddSale = () => {
   const normalizeListQty = (value) => {
     const parsed = Number(value)
     if (Number.isNaN(parsed)) return 0
-    return Math.max(0, Math.min(10, parsed))
+    return Math.max(0, Math.trunc(parsed))
   }
 
   const updateListQty = (productId, value) => {
@@ -221,6 +223,34 @@ const AddSale = () => {
 
   const clearListSelection = () => {
     setListQuantities({})
+    setEditingListProductId('')
+    setEditingListQuantity('')
+  }
+
+  const startListQtyEdit = (productId) => {
+    setEditingListProductId(productId)
+    setEditingListQuantity(String(Number(listQuantities[productId] || 0)))
+  }
+
+  const applyListQtyEdit = (productId) => {
+    if (editingListProductId !== productId) return
+    updateListQty(productId, editingListQuantity)
+    setEditingListProductId('')
+    setEditingListQuantity('')
+  }
+
+  const cancelListQtyEdit = () => {
+    setEditingListProductId('')
+    setEditingListQuantity('')
+  }
+
+  const updateEditingListQuantity = (value) => {
+    if (value === '') {
+      setEditingListQuantity('')
+      return
+    }
+    if (!/^\d+$/.test(value)) return
+    setEditingListQuantity(value)
   }
 
   const handleClearCart = () => {
@@ -378,6 +408,8 @@ const AddSale = () => {
           <div className="quick-list-grid">
             {filteredProducts.map((product) => {
               const qty = Number(listQuantities[product.id] || 0)
+              const sliderQty = Math.min(qty, 10)
+              const isEditingQty = editingListProductId === product.id
               return (
                 <div className="quick-list-row" key={product.id}>
                   <div className="quick-list-copy">
@@ -394,7 +426,7 @@ const AddSale = () => {
                       type="range"
                       min="0"
                       max="10"
-                      value={qty}
+                      value={sliderQty}
                       onChange={(event) => updateListQty(product.id, event.target.value)}
                       aria-label={`${product.name} quantity`}
                     />
@@ -403,7 +435,39 @@ const AddSale = () => {
                       +
                     </button>
 
-                    <span className="quick-list-qty-badge">{qty}</span>
+                    {isEditingQty ? (
+                      <input
+                        type="number"
+                        className="quick-list-qty-input"
+                        inputMode="numeric"
+                        min="0"
+                        autoFocus
+                        value={editingListQuantity}
+                        onChange={(event) => updateEditingListQuantity(event.target.value)}
+                        onBlur={() => applyListQtyEdit(product.id)}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter') {
+                            event.preventDefault()
+                            applyListQtyEdit(product.id)
+                          }
+                          if (event.key === 'Escape') {
+                            event.preventDefault()
+                            cancelListQtyEdit()
+                          }
+                        }}
+                        aria-label={`${product.name} exact quantity`}
+                      />
+                    ) : (
+                      <button
+                        type="button"
+                        className="quick-list-qty-badge qty-edit-trigger"
+                        onClick={() => startListQtyEdit(product.id)}
+                        title="Tap to type exact quantity"
+                        aria-label={`Edit ${product.name} quantity`}
+                      >
+                        {qty}
+                      </button>
+                    )}
                   </div>
                 </div>
               )
