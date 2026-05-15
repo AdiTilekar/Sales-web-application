@@ -34,7 +34,7 @@ export const getProductsForShop = (shopId = DEFAULT_SHOP_ID) => {
   const shop = SHOP_BY_ID[shopId] || SHOP_BY_ID[DEFAULT_SHOP_ID]
   return PRODUCTS.map((product) => ({
     ...product,
-    price: product.price + (shop?.priceAdjustment || 0),
+    price: product.id === 'small-rabdi' ? product.price : product.price + (shop?.priceAdjustment || 0),
   }))
 }
 
