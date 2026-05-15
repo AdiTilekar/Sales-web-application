@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import MetricCard from '../components/MetricCard'
 import ViewModeSwitch from '../components/ViewModeSwitch'
 import { useSales } from '../context/SalesContext'
+import { DEFAULT_SHOP_ID } from '../data/products'
 import { getLocalISODate } from '../utils/date'
 import { handleImageError } from '../utils/image'
 import { downloadExcelReport } from '../utils/excelReport'
@@ -51,7 +52,7 @@ const getPresetRange = (preset) => {
 
 const History = () => {
   const navigate = useNavigate()
-  const { allSales, products, productMap, deleteSale } = useSales()
+  const { allSales, products, productMap, deleteSale, currentShopId, currentShop } = useSales()
 
   const [flavorFilter, setFlavorFilter] = useState('all')
   const [fromDate, setFromDate] = useState('')
@@ -61,16 +62,21 @@ const History = () => {
   const [sortDirection, setSortDirection] = useState('desc')
   const [page, setPage] = useState(1)
 
-  const recentSale = useMemo(() => allSales[0] || null, [allSales])
+  const shopSales = useMemo(
+    () => allSales.filter((sale) => (sale.shopId || DEFAULT_SHOP_ID) === currentShopId),
+    [allSales, currentShopId],
+  )
+
+  const recentSale = useMemo(() => shopSales[0] || null, [shopSales])
 
   const filteredSales = useMemo(() => {
-    return allSales.filter((sale) => {
+    return shopSales.filter((sale) => {
       if (flavorFilter !== 'all' && sale.productId !== flavorFilter) return false
       if (fromDate && sale.date < fromDate) return false
       if (toDate && sale.date > toDate) return false
       return true
     })
-  }, [allSales, flavorFilter, fromDate, toDate])
+  }, [flavorFilter, fromDate, shopSales, toDate])
 
   const sortedSales = useMemo(() => {
     const direction = sortDirection === 'asc' ? 1 : -1
@@ -168,15 +174,28 @@ const History = () => {
       const { price, revenue, cost, profit } = getSaleFinance(sale, product)
       const margin = getProfitMarginPercent(profit, revenue)
 
-      return [sale.date, product?.name || sale.productId, sale.quantity, price, revenue, cost, profit, margin.toFixed(2), sale.customer, sale.city]
+      return [
+        currentShop?.name || DEFAULT_SHOP_ID,
+        sale.date,
+        product?.name || sale.productId,
+        sale.quantity,
+        price,
+        revenue,
+        cost,
+        profit,
+        margin.toFixed(2),
+        sale.customer,
+        sale.city,
+      ]
     })
 
     await downloadExcelReport({
       reportTitle: 'Kulfi Sales History Report',
       filePrefix: 'kulfi_sales_today_history',
-      headers: ['Date', 'Flavor', 'Quantity', 'Price per Unit', 'Revenue', 'Cost', 'Profit', 'Profit Margin %', 'Customer', 'City'],
+      headers: ['Branch', 'Date', 'Flavor', 'Quantity', 'Price per Unit', 'Revenue', 'Cost', 'Profit', 'Profit Margin %', 'Customer', 'City'],
       rows,
       summaryRows: [
+        ['Branch', currentShop?.name || DEFAULT_SHOP_ID],
         ['Filter Flavor', flavorFilter === 'all' ? 'All flavors' : productMap[flavorFilter]?.name || flavorFilter],
         ['Filter Date From', fromDate || '-'],
         ['Filter Date To', toDate || '-'],
@@ -196,6 +215,7 @@ const History = () => {
     <section className="page page-enter">
       <div className="page-header">
         <h2>Sales History</h2>
+        <p>{currentShop?.name || DEFAULT_SHOP_ID} history only.</p>
         <p>Review, sort, and export filtered sales records.</p>
       </div>
 

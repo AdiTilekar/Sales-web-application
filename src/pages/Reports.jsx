@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import ToastNotification from '../components/ToastNotification'
 import { useSales } from '../context/SalesContext'
+import { DEFAULT_SHOP_ID } from '../data/products'
 import { getLocalISODate } from '../utils/date'
 import { downloadExcelReport } from '../utils/excelReport'
 import { getProfitMarginPercent, getSaleFinance } from '../utils/finance'
@@ -63,13 +64,18 @@ const triggerDownload = (blob, fileName) => {
 }
 
 const Reports = () => {
-  const { allSales, products, productMap } = useSales()
+  const { allSales, products, productMap, currentShopId, currentShop } = useSales()
   const [flavorFilter, setFlavorFilter] = useState('all')
   const [fromDate, setFromDate] = useState('')
   const [toDate, setToDate] = useState('')
   const [preset, setPreset] = useState('all')
   const [showToast, setShowToast] = useState(false)
   const [toastMessage, setToastMessage] = useState('')
+
+  const shopSales = useMemo(
+    () => allSales.filter((sale) => (sale.shopId || DEFAULT_SHOP_ID) === currentShopId),
+    [allSales, currentShopId],
+  )
 
   useEffect(() => {
     if (!showToast) return undefined
@@ -78,13 +84,13 @@ const Reports = () => {
   }, [showToast])
 
   const filteredSales = useMemo(() => {
-    return allSales.filter((sale) => {
+    return shopSales.filter((sale) => {
       if (flavorFilter !== 'all' && sale.productId !== flavorFilter) return false
       if (fromDate && sale.date < fromDate) return false
       if (toDate && sale.date > toDate) return false
       return true
     })
-  }, [allSales, flavorFilter, fromDate, toDate])
+  }, [flavorFilter, fromDate, shopSales, toDate])
 
   const summary = useMemo(() => {
     return filteredSales.reduce(
@@ -225,6 +231,7 @@ const Reports = () => {
       const finance = getSaleFinance(sale, product)
       const margin = getProfitMarginPercent(finance.profit, finance.revenue)
       return [
+        currentShop?.name || DEFAULT_SHOP_ID,
         sale.date,
         product?.name || sale.productId,
         finance.quantity,
@@ -241,9 +248,10 @@ const Reports = () => {
     const result = await downloadExcelReport({
       reportTitle: 'Kulfi Detailed Sales Report',
       filePrefix: 'kulfi_detailed_sales',
-      headers: ['Date', 'Flavor', 'Qty', 'Rate', 'Revenue', 'Cost', 'Profit', 'Margin %', 'Customer', 'City'],
+      headers: ['Branch', 'Date', 'Flavor', 'Qty', 'Rate', 'Revenue', 'Cost', 'Profit', 'Margin %', 'Customer', 'City'],
       rows,
       summaryRows: [
+        ['Branch', currentShop?.name || DEFAULT_SHOP_ID],
         ['Flavor Filter', flavorFilter === 'all' ? 'All' : productMap[flavorFilter]?.name || flavorFilter],
         ['From Date', fromDate || '-'],
         ['To Date', toDate || '-'],
@@ -297,6 +305,7 @@ const Reports = () => {
       headers: ['Month Key', 'Month', 'Orders', 'Units', 'Revenue', 'Cost', 'Profit', 'Margin %'],
       rows,
       summaryRows: [
+        ['Branch', currentShop?.name || DEFAULT_SHOP_ID],
         ['Months', rows.length],
         ['Flavor Filter', flavorFilter === 'all' ? 'All' : productMap[flavorFilter]?.name || flavorFilter],
       ],
@@ -310,6 +319,7 @@ const Reports = () => {
     <section className="page page-enter">
       <div className="page-header">
         <h2>Reports Center</h2>
+        <p>{currentShop?.name || DEFAULT_SHOP_ID} reports only.</p>
         <p>Generate polished PDF and Excel reports from filtered sales data.</p>
       </div>
 

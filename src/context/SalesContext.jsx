@@ -1,9 +1,10 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
-import { PRODUCTS } from '../data/products'
+import { DEFAULT_SHOP_ID, PRODUCTS, SHOPS, getProductsForShop } from '../data/products'
 import { isSupabaseConfigured, supabase } from '../lib/supabaseClient'
 import { getLocalISODate, toLocalDateKey } from '../utils/date'
 
 const STORAGE_KEY = 'kulfi-sales-records-v2'
+const SHOP_STORAGE_KEY = 'kulfi-sales-current-shop-v1'
 const LEGACY_STORAGE_KEYS = ['kulfi-sales-records-v1']
 const SALES_TABLE = 'sales'
 
@@ -21,6 +22,8 @@ const filterSalesForHistory = (rows) => {
   return rows.filter((sale) => toLocalDateKey(sale.date) !== today)
 }
 
+const filterSalesForShop = (rows, shopId) => rows.filter((sale) => (sale.shopId || DEFAULT_SHOP_ID) === shopId)
+
 const mapRowToSale = (row) => ({
   id: row.id,
   date: row.date,
@@ -31,19 +34,28 @@ const mapRowToSale = (row) => ({
   unitCost: row.unit_cost ?? null,
   customer: row.customer || 'Walk-in Customer',
   city: row.city || 'Pune',
+  shopId: row.shop_id || row.shopId || DEFAULT_SHOP_ID,
 })
 
-const productById = PRODUCTS.reduce((acc, product) => ({ ...acc, [product.id]: product }), {})
+const baseProductById = PRODUCTS.reduce((acc, product) => ({ ...acc, [product.id]: product }), {})
 
-const normalizeSaleForStorage = (sale) => {
-  const product = productById[sale.productId]
+const normalizeLoadedSale = (sale) => ({
+  ...sale,
+  shopId: sale.shopId || DEFAULT_SHOP_ID,
+})
+
+const normalizeSaleForStorage = (sale, fallbackShopId = DEFAULT_SHOP_ID) => {
+  const shopId = sale.shopId || fallbackShopId || DEFAULT_SHOP_ID
+  const product = getProductsForShop(shopId).find((item) => item.id === sale.productId)
+  const baseProduct = baseProductById[sale.productId]
   const normalizedDate = toLocalDateKey(sale.date) || getLocalISODate()
-  const unitPrice = Number(sale.unitPrice ?? product?.price ?? 0)
-  const unitProfit = Number(sale.unitProfit ?? product?.profitPerUnit ?? 0)
+  const unitPrice = Number(sale.unitPrice ?? product?.price ?? baseProduct?.price ?? 0)
+  const unitProfit = Number(sale.unitProfit ?? baseProduct?.profitPerUnit ?? 0)
   const unitCost = Number(sale.unitCost ?? Math.max(0, unitPrice - unitProfit))
 
   return {
     ...sale,
+    shopId,
     date: normalizedDate,
     unitPrice,
     unitProfit,
@@ -88,6 +100,7 @@ const toInsertPayload = (sales, includeUnitCost = true) =>
       unit_profit: sale.unitProfit,
       customer: sale.customer,
       city: sale.city,
+      shop_id: sale.shopId || DEFAULT_SHOP_ID,
     }
 
     if (includeUnitCost) {
@@ -126,7 +139,7 @@ const readLocalSales = () => {
   if (!saved) return []
 
   try {
-    return sortSales(JSON.parse(saved))
+    return sortSales(JSON.parse(saved).map(normalizeLoadedSale))
   } catch {
     return []
   }
@@ -134,15 +147,27 @@ const readLocalSales = () => {
 
 export const SalesProvider = ({ children }) => {
   const [allSales, setAllSales] = useState([])
+  const [currentShopId, setCurrentShopId] = useState(() => {
+    try {
+      return localStorage.getItem(SHOP_STORAGE_KEY) || DEFAULT_SHOP_ID
+    } catch {
+      return DEFAULT_SHOP_ID
+    }
+  })
   const [isLoading, setIsLoading] = useState(true)
   const [syncStatus, setSyncStatus] = useState(isSupabaseConfigured ? 'checking' : 'local')
   const [lastSyncError, setLastSyncError] = useState('')
   const isSyncingPendingRef = useRef(false)
 
+  const currentShop = useMemo(
+    () => SHOPS.find((shop) => shop.id === currentShopId) || SHOPS[0],
+    [currentShopId],
+  )
+
   const syncPendingLocalSales = async (pendingSales) => {
     if (!isSupabaseConfigured || !supabase || pendingSales.length === 0) return false
 
-    const normalizedBatch = pendingSales.map(normalizeSaleForStorage)
+    const normalizedBatch = pendingSales.map((sale) => normalizeSaleForStorage(sale, sale.shopId || DEFAULT_SHOP_ID))
     const pendingIds = new Set(normalizedBatch.map((sale) => sale.id))
 
     const { data, error } = await insertSalesToCloud(normalizedBatch)
@@ -257,17 +282,33 @@ export const SalesProvider = ({ children }) => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(allSales))
   }, [allSales])
 
+  useEffect(() => {
+    localStorage.setItem(SHOP_STORAGE_KEY, currentShopId)
+  }, [currentShopId])
+
   const productMap = useMemo(
-    () => PRODUCTS.reduce((acc, product) => ({ ...acc, [product.id]: product }), {}),
-    [],
+    () => getProductsForShop(currentShopId).reduce((acc, product) => ({ ...acc, [product.id]: product }), {}),
+    [currentShopId],
   )
 
-  const todaySales = useMemo(() => filterSalesForToday(allSales), [allSales])
-  const historySales = useMemo(() => filterSalesForHistory(allSales), [allSales])
+  const products = useMemo(() => getProductsForShop(currentShopId), [currentShopId])
+
+  const todaySales = useMemo(
+    () => filterSalesForToday(filterSalesForShop(allSales, currentShopId)),
+    [allSales, currentShopId],
+  )
+  const historySales = useMemo(
+    () => filterSalesForHistory(filterSalesForShop(allSales, currentShopId)),
+    [allSales, currentShopId],
+  )
 
   const addSalesBatch = async (salesBatch) => {
     if (!Array.isArray(salesBatch) || salesBatch.length === 0) return true
-    const normalizedBatch = salesBatch.map(normalizeSaleForStorage)
+    const salesForCurrentShop = salesBatch.map((sale) => ({
+      ...sale,
+      shopId: sale.shopId || currentShopId,
+    }))
+    const normalizedBatch = salesForCurrentShop.map((sale) => normalizeSaleForStorage(sale, currentShopId))
 
     if (!isSupabaseConfigured || !supabase) {
       const localSales = normalizedBatch.map((sale) => ({
@@ -330,6 +371,9 @@ export const SalesProvider = ({ children }) => {
     todaySales,
     historySales,
     allSales,
+    currentShopId,
+    setCurrentShopId,
+    currentShop,
     addSale,
     addSalesBatch,
     deleteSale,
@@ -339,7 +383,7 @@ export const SalesProvider = ({ children }) => {
     hasCloudConfig: isSupabaseConfigured,
     syncStatus,
     lastSyncError,
-    products: PRODUCTS,
+    products,
     productMap,
     todayDate: getTodayDate(),
   }

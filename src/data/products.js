@@ -1,6 +1,15 @@
 const FLAVOR_BASE_URL = 'https://aditilekar.github.io/ShreeGaneshKulfi.github.io/images/flavors/'
 const LOCAL_FLAVOR_BASE = `${import.meta.env.BASE_URL}images/flavors/`
 
+export const DEFAULT_SHOP_ID = 'shop-1'
+
+export const SHOPS = [
+  { id: 'shop-1', name: 'Chikhali Branch', priceAdjustment: 0 },
+  { id: 'shop-2', name: 'Akurdi Branch', priceAdjustment: 5 },
+]
+
+const SHOP_BY_ID = SHOPS.reduce((acc, shop) => ({ ...acc, [shop.id]: shop }), {})
+
 export const PRODUCTS = [
   { id: 'mango', name: 'Mango', price: 25, profitPerUnit: 9, image: `${FLAVOR_BASE_URL}mango_kulfi.png` },
   { id: 'rabdi', name: 'Rabdi', price: 25, profitPerUnit: 9, image: `${FLAVOR_BASE_URL}rabdi_kulfi.png` },
@@ -20,5 +29,13 @@ export const PRODUCTS = [
   { id: 'mava', name: 'Mava Kulfi', price: 25, profitPerUnit: 6, image: `${LOCAL_FLAVOR_BASE}mava_kulfi.png` },
   { id: 'butterscotch', name: 'Butterscotch', price: 25, profitPerUnit: 6, image: `${LOCAL_FLAVOR_BASE}butterscotch_kulfi.png` },
 ]
+
+export const getProductsForShop = (shopId = DEFAULT_SHOP_ID) => {
+  const shop = SHOP_BY_ID[shopId] || SHOP_BY_ID[DEFAULT_SHOP_ID]
+  return PRODUCTS.map((product) => ({
+    ...product,
+    price: product.price + (shop?.priceAdjustment || 0),
+  }))
+}
 
 export const LOGO_URL = 'https://aditilekar.github.io/ShreeGaneshKulfi.github.io/images/logo.png'

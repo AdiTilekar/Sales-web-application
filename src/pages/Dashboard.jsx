@@ -12,6 +12,7 @@ import {
 } from 'recharts'
 import MetricCard from '../components/MetricCard'
 import { useSales } from '../context/SalesContext'
+import { DEFAULT_SHOP_ID } from '../data/products'
 import { getLocalISODate, toLocalDateKey } from '../utils/date'
 import { aggregateFinance, getProfitMarginPercent, getSaleFinance } from '../utils/finance'
 
@@ -35,10 +36,15 @@ const getStartOfWeek = (date) => {
 }
 
 const Dashboard = () => {
-  const { allSales, productMap } = useSales()
+  const { allSales, productMap, currentShopId, currentShop } = useSales()
   const [rangeType, setRangeType] = useState('today')
   const [customFrom, setCustomFrom] = useState('')
   const [customTo, setCustomTo] = useState('')
+
+  const shopSales = useMemo(
+    () => allSales.filter((sale) => (sale.shopId || DEFAULT_SHOP_ID) === currentShopId),
+    [allSales, currentShopId],
+  )
 
   const activeRange = useMemo(() => {
     const today = new Date()
@@ -97,12 +103,12 @@ const Dashboard = () => {
   }, [customFrom, customTo, rangeType])
 
   const filteredSales = useMemo(() => {
-    return allSales.filter((sale) => {
+    return shopSales.filter((sale) => {
       const dayKey = toLocalDateKey(sale.date)
       if (!dayKey) return false
       return dayKey >= activeRange.startKey && dayKey <= activeRange.endKey
     })
-  }, [activeRange.endKey, activeRange.startKey, allSales])
+  }, [activeRange.endKey, activeRange.startKey, shopSales])
 
   const rangeSubtitle = useMemo(() => {
     if (activeRange.startKey === activeRange.endKey) {
@@ -172,7 +178,7 @@ const Dashboard = () => {
   const dailyTrend = useMemo(() => {
     const dayMap = new Map()
 
-    allSales.forEach((sale) => {
+    shopSales.forEach((sale) => {
       const dayKey = toLocalDateKey(sale.date)
       if (!dayKey) return
 
@@ -203,12 +209,13 @@ const Dashboard = () => {
     }
 
     return trend
-  }, [allSales, productMap])
+  }, [productMap, shopSales])
 
   return (
     <section className="page page-enter">
       <div className="page-header">
         <h2>Dashboard</h2>
+        <p>{currentShop?.name || DEFAULT_SHOP_ID} sales only.</p>
         <p>Track revenue, units, and flavor performance by date range.</p>
       </div>
 

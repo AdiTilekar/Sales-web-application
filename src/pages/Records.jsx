@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import ViewModeSwitch from '../components/ViewModeSwitch'
 import { useSales } from '../context/SalesContext'
+import { DEFAULT_SHOP_ID } from '../data/products'
 import { getLocalISODate } from '../utils/date'
 import { downloadExcelReport } from '../utils/excelReport'
 import { getProfitMarginPercent, getSaleFinance } from '../utils/finance'
@@ -48,7 +49,7 @@ const getPresetRange = (preset) => {
 }
 
 const Records = () => {
-  const { allSales, products, productMap, deleteSale } = useSales()
+  const { allSales, products, productMap, deleteSale, currentShopId, currentShop } = useSales()
   const [flavorFilter, setFlavorFilter] = useState('all')
   const [fromDate, setFromDate] = useState('')
   const [toDate, setToDate] = useState('')
@@ -57,14 +58,19 @@ const Records = () => {
   const [sortDirection, setSortDirection] = useState('desc')
   const [page, setPage] = useState(1)
 
+  const shopSales = useMemo(
+    () => allSales.filter((sale) => (sale.shopId || DEFAULT_SHOP_ID) === currentShopId),
+    [allSales, currentShopId],
+  )
+
   const filteredSales = useMemo(() => {
-    return allSales.filter((sale) => {
+    return shopSales.filter((sale) => {
       if (flavorFilter !== 'all' && sale.productId !== flavorFilter) return false
       if (fromDate && sale.date < fromDate) return false
       if (toDate && sale.date > toDate) return false
       return true
     })
-  }, [allSales, flavorFilter, fromDate, toDate])
+  }, [flavorFilter, fromDate, shopSales, toDate])
 
   const sortedSales = useMemo(() => {
     const direction = sortDirection === 'asc' ? 1 : -1
@@ -162,6 +168,7 @@ const Records = () => {
       const margin = getProfitMarginPercent(finance.profit, finance.revenue)
 
       return [
+        currentShop?.name || DEFAULT_SHOP_ID,
         sale.date,
         product?.name || sale.productId,
         finance.quantity,
@@ -177,9 +184,10 @@ const Records = () => {
     await downloadExcelReport({
       reportTitle: 'Kulfi Sales Records Report',
       filePrefix: 'kulfi_sales_report',
-      headers: ['Date', 'Flavor', 'Quantity', 'Price per Unit', 'Revenue', 'Profit', 'Margin %', 'Customer', 'City'],
+      headers: ['Branch', 'Date', 'Flavor', 'Quantity', 'Price per Unit', 'Revenue', 'Profit', 'Margin %', 'Customer', 'City'],
       rows,
       summaryRows: [
+        ['Branch', currentShop?.name || DEFAULT_SHOP_ID],
         ['Filter Flavor', flavorFilter === 'all' ? 'All flavors' : productMap[flavorFilter]?.name || flavorFilter],
         ['Filter Date From', fromDate || '-'],
         ['Filter Date To', toDate || '-'],
@@ -196,6 +204,7 @@ const Records = () => {
     <section className="page page-enter">
       <div className="page-header">
         <h2>Sales Records</h2>
+        <p>{currentShop?.name || DEFAULT_SHOP_ID} records only.</p>
         <p>Filter, sort, and manage sales entries.</p>
       </div>
 

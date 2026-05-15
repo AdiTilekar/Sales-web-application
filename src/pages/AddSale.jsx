@@ -2,11 +2,12 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import FlavorCard from '../components/FlavorCard'
 import ToastNotification from '../components/ToastNotification'
 import { useSales } from '../context/SalesContext'
+import { DEFAULT_SHOP_ID } from '../data/products'
 import { getLocalISODate, toLocalDateKey } from '../utils/date'
 import { handleImageError } from '../utils/image'
 
 const AddSale = () => {
-  const { products, allSales, addSale, addSalesBatch } = useSales()
+  const { products, allSales, addSale, addSalesBatch, currentShop } = useSales()
   const [selectedProductId, setSelectedProductId] = useState('')
   const [isSheetOpen, setIsSheetOpen] = useState(false)
   const [quantity, setQuantity] = useState('')
@@ -315,6 +316,7 @@ const AddSale = () => {
     <section className="page page-enter">
       <div className="page-header">
         <h2>Add Sale Entry</h2>
+        <p>{currentShop?.name || DEFAULT_SHOP_ID} pricing is active for this screen.</p>
         <p>Select flavor, add quantity, then complete checkout quickly.</p>
       </div>
 

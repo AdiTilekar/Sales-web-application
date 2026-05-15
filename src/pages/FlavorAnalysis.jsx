@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Bar, BarChart, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { useSales } from '../context/SalesContext'
+import { DEFAULT_SHOP_ID } from '../data/products'
 import { handleImageError } from '../utils/image'
 import { getProfitMarginPercent, getSaleFinance } from '../utils/finance'
 
@@ -14,18 +15,23 @@ const getMonthKey = (dateValue) => {
 }
 
 const FlavorAnalysis = () => {
-  const { allSales, productMap } = useSales()
+  const { allSales, productMap, currentShopId, currentShop } = useSales()
   const [compareMode, setCompareMode] = useState('total')
+
+  const shopSales = useMemo(
+    () => allSales.filter((sale) => (sale.shopId || DEFAULT_SHOP_ID) === currentShopId),
+    [allSales, currentShopId],
+  )
 
   const monthOptions = useMemo(() => {
     const seen = new Set()
 
-    allSales.forEach((sale) => {
+    shopSales.forEach((sale) => {
       seen.add(getMonthKey(sale.date))
     })
 
     return [...seen].sort((a, b) => b.localeCompare(a))
-  }, [allSales])
+  }, [shopSales])
 
   const [selectedMonth, setSelectedMonth] = useState('')
 
@@ -33,11 +39,11 @@ const FlavorAnalysis = () => {
 
   const scopedSales = useMemo(() => {
     if (compareMode === 'month' && effectiveMonth) {
-      return allSales.filter((sale) => getMonthKey(sale.date) === effectiveMonth)
+      return shopSales.filter((sale) => getMonthKey(sale.date) === effectiveMonth)
     }
 
-    return allSales
-  }, [allSales, compareMode, effectiveMonth])
+    return shopSales
+  }, [compareMode, effectiveMonth, shopSales])
 
   const data = useMemo(() => {
     const totals = scopedSales.reduce((acc, sale) => {
@@ -84,6 +90,7 @@ const FlavorAnalysis = () => {
     <section className="page page-enter">
       <div className="page-header">
         <h2>Flavor Analysis</h2>
+        <p>{currentShop?.name || DEFAULT_SHOP_ID} flavor performance.</p>
         <p>Compare flavor performance by month or across total sales.</p>
       </div>
 

@@ -1,6 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import { LOGO_URL } from '../data/products'
 import { useSales } from '../context/SalesContext'
+import ShopSelector from './ShopSelector'
 import { handleImageError, LOGO_FALLBACK_IMAGE } from '../utils/image'
 
 const Navbar = () => {
@@ -44,6 +45,8 @@ const Navbar = () => {
           {statusLabel}
         </span>
       </div>
+
+      <ShopSelector />
 
       <nav className="nav-links" aria-label="Main navigation">
         <NavLink to="/add">Add Sale</NavLink>
