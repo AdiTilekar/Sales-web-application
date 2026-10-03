@@ -9,7 +9,15 @@ const FlavorCard = ({ product, selected, onSelect }) => {
     >
       <div className="flavor-visual">
         <div className="flavor-halo" />
-        <img src={product.image} alt={product.name} className="flavor-image" loading="lazy" onError={handleImageError} />
+        <img
+          src={product.image}
+          alt={product.name}
+          className="flavor-image"
+          width="76"
+          height="76"
+          decoding="async"
+          onError={handleImageError}
+        />
         <span className="price-tag">₹{product.price}</span>
       </div>
 

@@ -34,7 +34,7 @@ const mapRowToSale = (row) => ({
   unitCost: row.unit_cost ?? null,
   customer: row.customer || 'Walk-in Customer',
   city: row.city || 'Pune',
-  shopId: row.shop_id || row.shopId || DEFAULT_SHOP_ID,
+  shopId: row.shop_id || row.Shop_id || row.shopId || DEFAULT_SHOP_ID,
 })
 
 const baseProductById = PRODUCTS.reduce((acc, product) => ({ ...acc, [product.id]: product }), {})
@@ -90,7 +90,16 @@ const isMissingUnitCostError = (error) => {
   return message.includes('unit_cost') && (message.includes('schema cache') || code === 'pgrst204')
 }
 
-const toInsertPayload = (sales, includeUnitCost = true) =>
+const isMissingShopIdError = (error) => {
+  const message = String(error?.message || '').toLowerCase()
+  const code = String(error?.code || '').toLowerCase()
+  return (
+    (message.includes('shop_id') || message.includes('shopid')) &&
+    (message.includes('schema cache') || code === 'pgrst204')
+  )
+}
+
+const toInsertPayload = (sales, includeUnitCost = true, shopColumnName = 'shop_id') =>
   sales.map((sale) => {
     const payload = {
       date: sale.date,
@@ -100,7 +109,10 @@ const toInsertPayload = (sales, includeUnitCost = true) =>
       unit_profit: sale.unitProfit,
       customer: sale.customer,
       city: sale.city,
-      shop_id: sale.shopId || DEFAULT_SHOP_ID,
+    }
+
+    if (shopColumnName) {
+      payload[shopColumnName] = sale.shopId || DEFAULT_SHOP_ID
     }
 
     if (includeUnitCost) {
@@ -115,11 +127,47 @@ const insertSalesToCloud = async (normalizedBatch) => {
     return { data: null, error: new Error('Supabase is not configured') }
   }
 
-  let response = await supabase.from(SALES_TABLE).insert(toInsertPayload(normalizedBatch, true)).select('*')
+  let response = await supabase
+    .from(SALES_TABLE)
+    .insert(toInsertPayload(normalizedBatch, true, 'shop_id'))
+    .select('*')
+
+  if (response.error && isMissingShopIdError(response.error)) {
+    // Compatibility for setups that still use quoted Shop_id.
+    response = await supabase
+      .from(SALES_TABLE)
+      .insert(toInsertPayload(normalizedBatch, true, 'Shop_id'))
+      .select('*')
+  }
 
   if (response.error && isMissingUnitCostError(response.error)) {
     // Backward compatibility for projects where unit_cost is not yet migrated.
-    response = await supabase.from(SALES_TABLE).insert(toInsertPayload(normalizedBatch, false)).select('*')
+    response = await supabase
+      .from(SALES_TABLE)
+      .insert(toInsertPayload(normalizedBatch, false, 'shop_id'))
+      .select('*')
+
+    if (response.error && isMissingShopIdError(response.error)) {
+      response = await supabase
+        .from(SALES_TABLE)
+        .insert(toInsertPayload(normalizedBatch, false, 'Shop_id'))
+        .select('*')
+    }
+  }
+
+  if (response.error && isMissingShopIdError(response.error)) {
+    // Last resort: sync sales without branch tagging so cloud sync can recover.
+    response = await supabase
+      .from(SALES_TABLE)
+      .insert(toInsertPayload(normalizedBatch, true, null))
+      .select('*')
+
+    if (response.error && isMissingUnitCostError(response.error)) {
+      response = await supabase
+        .from(SALES_TABLE)
+        .insert(toInsertPayload(normalizedBatch, false, null))
+        .select('*')
+    }
   }
 
   return response
@@ -145,6 +193,17 @@ const readLocalSales = () => {
   }
 }
 
+const CART_STORAGE_KEY = 'kulfi-staged-cart-v1'
+
+const readStagedCart = () => {
+  try {
+    const saved = sessionStorage.getItem(CART_STORAGE_KEY)
+    return saved ? JSON.parse(saved) : []
+  } catch {
+    return []
+  }
+}
+
 export const SalesProvider = ({ children }) => {
   const [allSales, setAllSales] = useState([])
   const [currentShopId, setCurrentShopId] = useState(() => {
@@ -154,6 +213,7 @@ export const SalesProvider = ({ children }) => {
       return DEFAULT_SHOP_ID
     }
   })
+  const [cartItems, setCartItems] = useState(readStagedCart)
   const [isLoading, setIsLoading] = useState(true)
   const [syncStatus, setSyncStatus] = useState(isSupabaseConfigured ? 'checking' : 'local')
   const [lastSyncError, setLastSyncError] = useState('')
@@ -163,6 +223,45 @@ export const SalesProvider = ({ children }) => {
     () => SHOPS.find((shop) => shop.id === currentShopId) || SHOPS[0],
     [currentShopId],
   )
+
+  useEffect(() => {
+    try {
+      if (cartItems.length === 0) {
+        sessionStorage.removeItem(CART_STORAGE_KEY)
+      } else {
+        sessionStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cartItems))
+      }
+    } catch {
+      // ignore storage errors
+    }
+  }, [cartItems])
+
+  const clearCart = () => {
+    setCartItems([])
+    try {
+      sessionStorage.removeItem(CART_STORAGE_KEY)
+    } catch {
+      // ignore
+    }
+  }
+
+  const changeShop = (targetShopId) => {
+    if (targetShopId === currentShopId) return true
+
+    if (cartItems.length > 0) {
+      const targetShop = SHOPS.find((s) => s.id === targetShopId) || { name: 'another branch' }
+      const confirmed = window.confirm(
+        `You have ${cartItems.length} item(s) staged in the cart for ${currentShop?.name || 'this branch'}. Changing branches will clear the current cart. Do you want to switch to ${targetShop.name}?`
+      )
+      if (!confirmed) {
+        return false
+      }
+      clearCart()
+    }
+
+    setCurrentShopId(targetShopId)
+    return true
+  }
 
   const syncPendingLocalSales = async (pendingSales) => {
     if (!isSupabaseConfigured || !supabase || pendingSales.length === 0) return false
@@ -373,7 +472,11 @@ export const SalesProvider = ({ children }) => {
     allSales,
     currentShopId,
     setCurrentShopId,
+    changeShop,
     currentShop,
+    cartItems,
+    setCartItems,
+    clearCart,
     addSale,
     addSalesBatch,
     deleteSale,

@@ -1,15 +1,34 @@
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { useEffect } from 'react'
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import Navbar from './components/Navbar'
 import { useSales } from './context/SalesContext'
 import AddSale from './pages/AddSale'
 import Dashboard from './pages/Dashboard'
 import FlavorAnalysis from './pages/FlavorAnalysis'
 import History from './pages/History'
+import PurchaseOrder from './pages/PurchaseOrder'
 import Records from './pages/Records'
 import Reports from './pages/Reports'
 
+const ROUTE_TITLES = {
+  '/add': 'Add Sale',
+  '/dashboard': 'Dashboard',
+  '/records': 'Records',
+  '/history': 'History',
+  '/reports': 'Reports',
+  '/flavors': 'Flavor Analysis',
+  '/purchase-order': 'Purchase Order',
+  '/po': 'Purchase Order',
+}
+
 function App() {
   const { isLoading, syncStatus, lastSyncError } = useSales()
+  const location = useLocation()
+
+  useEffect(() => {
+    const pageTitle = ROUTE_TITLES[location.pathname] || 'Sales App'
+    document.title = `${pageTitle} – Shree Ganesh Kulfi`
+  }, [location.pathname])
 
   return (
     <div className="app-shell">
@@ -25,8 +44,8 @@ function App() {
       <main className="app-main">
         {isLoading ? (
           <section className="page page-enter">
-            <div className="glass-card mobile-help">
-              <p>Loading sales data...</p>
+            <div className="glass-card loading-card">
+              <p>🍦 Loading Shree Ganesh Kulfi data...</p>
             </div>
           </section>
         ) : (
@@ -38,6 +57,8 @@ function App() {
             <Route path="/history" element={<History />} />
             <Route path="/reports" element={<Reports />} />
             <Route path="/flavors" element={<FlavorAnalysis />} />
+            <Route path="/purchase-order" element={<PurchaseOrder />} />
+            <Route path="/po" element={<Navigate to="/purchase-order" replace />} />
             <Route path="*" element={<Navigate to="/add" replace />} />
           </Routes>
         )}

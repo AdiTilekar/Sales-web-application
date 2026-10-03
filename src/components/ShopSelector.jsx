@@ -2,14 +2,14 @@ import { useSales } from '../context/SalesContext'
 import { SHOPS } from '../data/products'
 
 const ShopSelector = () => {
-  const { currentShopId, setCurrentShopId } = useSales()
+  const { currentShopId, changeShop } = useSales()
 
   return (
     <div className="shop-selector">
       <label className="shop-selector-label">Branch:</label>
       <select 
         value={currentShopId} 
-        onChange={(e) => setCurrentShopId(e.target.value)}
+        onChange={(e) => changeShop(e.target.value)}
         className="shop-selector-select"
       >
         {SHOPS.map((shop) => (

@@ -1,4 +1,4 @@
-export const PRODUCT_FALLBACK_IMAGE = `${import.meta.env.BASE_URL}images/flavors/pista_kulfi.png`
+export const PRODUCT_FALLBACK_IMAGE = `${import.meta.env.BASE_URL}images/flavors/pista_kulfi.webp`
 export const LOGO_FALLBACK_IMAGE = `${import.meta.env.BASE_URL}favicon.svg`
 
 export const handleImageError = (event, fallbackSrc = PRODUCT_FALLBACK_IMAGE) => {

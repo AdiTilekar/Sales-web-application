@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
+import ToastNotification from '../components/ToastNotification'
 import ViewModeSwitch from '../components/ViewModeSwitch'
 import { useSales } from '../context/SalesContext'
 import { DEFAULT_SHOP_ID } from '../data/products'
@@ -49,7 +50,7 @@ const getPresetRange = (preset) => {
 }
 
 const Records = () => {
-  const { allSales, products, productMap, deleteSale, currentShopId, currentShop } = useSales()
+  const { allSales, products, productMap, deleteSale, addSale, currentShopId, currentShop } = useSales()
   const [flavorFilter, setFlavorFilter] = useState('all')
   const [fromDate, setFromDate] = useState('')
   const [toDate, setToDate] = useState('')
@@ -57,6 +58,13 @@ const Records = () => {
   const [sortField, setSortField] = useState('date')
   const [sortDirection, setSortDirection] = useState('desc')
   const [page, setPage] = useState(1)
+  const [toastState, setToastState] = useState({
+    show: false,
+    message: '',
+    actionLabel: null,
+  })
+  const undoSaleRef = useRef(null)
+  const undoTimerRef = useRef(null)
 
   const shopSales = useMemo(
     () => allSales.filter((sale) => (sale.shopId || DEFAULT_SHOP_ID) === currentShopId),
@@ -149,14 +157,49 @@ const Records = () => {
   }
 
   const handleDeleteSale = async (sale) => {
-    const product = productMap[sale.productId]
-    const label = `${product?.name || 'Unknown flavor'} on ${new Date(sale.date).toLocaleDateString('en-IN')}`
-    const shouldDelete = window.confirm(`Delete sale: ${label}?`)
-    if (!shouldDelete) return
-    const isDeleted = await deleteSale(sale.id)
-    if (!isDeleted) {
-      window.alert('Could not delete sale. Your current access does not allow delete in cloud mode.')
+    if (undoTimerRef.current) {
+      clearTimeout(undoTimerRef.current)
     }
+
+    const product = productMap[sale.productId]
+    const finance = getSaleFinance(sale, product)
+    const flavorName = product?.name || sale.productId || 'Sale'
+
+    undoSaleRef.current = sale
+    await deleteSale(sale.id)
+
+    setToastState({
+      show: true,
+      message: `Deleted ${flavorName} (${sale.quantity} units · ${formatCurrency(finance.revenue)})`,
+      actionLabel: 'UNDO',
+    })
+
+    undoTimerRef.current = setTimeout(() => {
+      setToastState({ show: false, message: '', actionLabel: null })
+      undoSaleRef.current = null
+    }, 5000)
+  }
+
+  const handleUndoDelete = async () => {
+    if (undoTimerRef.current) {
+      clearTimeout(undoTimerRef.current)
+    }
+
+    const saleToRestore = undoSaleRef.current
+    if (!saleToRestore) return
+
+    undoSaleRef.current = null
+    setToastState({
+      show: true,
+      message: '✓ Sale restored!',
+      actionLabel: null,
+    })
+
+    await addSale(saleToRestore)
+
+    undoTimerRef.current = setTimeout(() => {
+      setToastState({ show: false, message: '', actionLabel: null })
+    }, 2500)
   }
 
   const exportAsExcel = async () => {
@@ -435,6 +478,13 @@ const Records = () => {
           Next
         </button>
       </div>
+
+      <ToastNotification
+        show={toastState.show}
+        message={toastState.message}
+        actionLabel={toastState.actionLabel}
+        onAction={handleUndoDelete}
+      />
     </section>
   )
 }

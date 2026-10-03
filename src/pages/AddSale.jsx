@@ -7,10 +7,10 @@ import { getLocalISODate, toLocalDateKey } from '../utils/date'
 import { handleImageError } from '../utils/image'
 
 const AddSale = () => {
-  const { products, allSales, addSale, addSalesBatch, currentShop } = useSales()
+  const { products, allSales, addSale, addSalesBatch, currentShop, currentShopId, cartItems, setCartItems, clearCart } = useSales()
   const [selectedProductId, setSelectedProductId] = useState('')
   const [isSheetOpen, setIsSheetOpen] = useState(false)
-  const [quantity, setQuantity] = useState('')
+  const [quantity, setQuantity] = useState(1)
   const [customer, setCustomer] = useState('')
   const [city, setCity] = useState('')
   const [date, setDate] = useState(getLocalISODate())
@@ -21,8 +21,10 @@ const AddSale = () => {
   const [listQuantities, setListQuantities] = useState({})
   const [editingListProductId, setEditingListProductId] = useState('')
   const [editingListQuantity, setEditingListQuantity] = useState('')
-  const [cartItems, setCartItems] = useState([])
+  const [isInPageCheckoutVisible, setIsInPageCheckoutVisible] = useState(false)
+  const inPageCheckoutRef = useRef(null)
   const lastKnownTodayRef = useRef(getLocalISODate())
+  const touchStartYRef = useRef(0)
 
   const selectedProduct = products.find((product) => product.id === selectedProductId)
 
@@ -54,10 +56,12 @@ const AddSale = () => {
       .map((item) => {
         const product = products.find((p) => p.id === item.productId)
         if (!product) return null
+        const unitPrice = Number(item.unitPrice ?? product.price)
         return {
           ...item,
           product,
-          amount: item.quantity * product.price,
+          unitPrice,
+          amount: item.quantity * unitPrice,
         }
       })
       .filter(Boolean)
@@ -105,6 +109,24 @@ const AddSale = () => {
   }, [isSheetOpen])
 
   useEffect(() => {
+    const target = inPageCheckoutRef.current
+    if (!target) return undefined
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsInPageCheckoutVisible(entry.isIntersecting)
+      },
+      { threshold: 0.15 },
+    )
+
+    observer.observe(target)
+
+    return () => {
+      observer.disconnect()
+    }
+  }, [cartDetails.detailedItems.length])
+
+  useEffect(() => {
     const timer = setInterval(() => {
       const latestToday = getLocalISODate()
       if (latestToday === lastKnownTodayRef.current) return
@@ -120,13 +142,26 @@ const AddSale = () => {
 
   const openSheet = (productId) => {
     setSelectedProductId(productId)
-    setQuantity('')
+    setQuantity(1)
     setIsSheetOpen(true)
   }
 
   const closeSheet = () => {
     setIsSheetOpen(false)
     setSelectedProductId('')
+    setQuantity(1)
+  }
+
+  const handleSheetTouchStart = (event) => {
+    touchStartYRef.current = event.touches?.[0]?.clientY || 0
+  }
+
+  const handleSheetTouchEnd = (event) => {
+    const endY = event.changedTouches?.[0]?.clientY || 0
+    const deltaY = endY - touchStartYRef.current
+    if (deltaY > 60) {
+      closeSheet()
+    }
   }
 
   const updateQuantity = (nextValue) => {
@@ -135,18 +170,19 @@ const AddSale = () => {
       return
     }
     const normalized = Number(nextValue)
-    if (Number.isNaN(normalized) || normalized < 0) return
+    if (Number.isNaN(normalized) || normalized < 1) return
     setQuantity(normalized)
   }
 
   const handleSubmit = async (event) => {
     event.preventDefault()
-    if (!selectedProductId || !quantity || Number(quantity) <= 0) return
+    const effectiveQty = Number(quantity) || 1
+    if (!selectedProductId || effectiveQty <= 0) return
     const effectiveDate = toLocalDateKey(date) || getLocalISODate()
 
     const isSaved = await addSale({
       productId: selectedProductId,
-      quantity: Number(quantity),
+      quantity: effectiveQty,
       customer: customer.trim() || 'Walk-in Customer',
       city: city.trim() || 'Pune',
       date: effectiveDate,
@@ -158,7 +194,7 @@ const AddSale = () => {
       return
     }
 
-    setQuantity('')
+    setQuantity(1)
     setCustomer('')
     setCity('')
     setDate(getLocalISODate())
@@ -168,25 +204,36 @@ const AddSale = () => {
   }
 
   const handleAddToCart = () => {
-    if (!selectedProductId || !quantity || Number(quantity) <= 0) return
+    const effectiveQty = Number(quantity) || 1
+    if (!selectedProductId || effectiveQty <= 0) return
+    const product = products.find((p) => p.id === selectedProductId)
+    const unitPrice = product ? product.price : 0
 
     setCartItems((prev) => {
       const existing = prev.find((item) => item.productId === selectedProductId)
       if (existing) {
         return prev.map((item) =>
           item.productId === selectedProductId
-            ? { ...item, quantity: item.quantity + Number(quantity) }
+            ? { ...item, quantity: item.quantity + effectiveQty, unitPrice }
             : item,
         )
       }
 
-      return [...prev, { productId: selectedProductId, quantity: Number(quantity) }]
+      return [
+        ...prev,
+        {
+          productId: selectedProductId,
+          quantity: effectiveQty,
+          unitPrice,
+          shopId: currentShopId,
+          shopName: currentShop?.name || 'Branch',
+        },
+      ]
     })
 
     setToastMessage('Item added to cart')
     setShowToast(true)
     closeSheet()
-    setQuantity('')
   }
 
   const removeCartItem = (productId) => {
@@ -226,10 +273,17 @@ const AddSale = () => {
           next[existingIndex] = {
             ...next[existingIndex],
             quantity: next[existingIndex].quantity + row.quantity,
+            unitPrice: row.product.price,
           }
           return
         }
-        next.push({ productId: row.product.id, quantity: row.quantity })
+        next.push({
+          productId: row.product.id,
+          quantity: row.quantity,
+          unitPrice: row.product.price,
+          shopId: currentShopId,
+          shopName: currentShop?.name || 'Branch',
+        })
       })
       return next
     })
@@ -275,7 +329,7 @@ const AddSale = () => {
     if (cartItems.length === 0) return
     const shouldClear = window.confirm('Clear all items from the cart?')
     if (!shouldClear) return
-    setCartItems([])
+    clearCart()
     setToastMessage('Cart cleared')
     setShowToast(true)
   }
@@ -285,12 +339,14 @@ const AddSale = () => {
     const effectiveDate = toLocalDateKey(date) || getLocalISODate()
 
     const salesPayload = cartDetails.detailedItems.map((item) => ({
-        productId: item.productId,
-        quantity: item.quantity,
-        customer: customer.trim() || 'Walk-in Customer',
-        city: city.trim() || 'Pune',
-        date: effectiveDate,
-      }))
+      productId: item.productId,
+      quantity: item.quantity,
+      unitPrice: item.unitPrice,
+      shopId: item.shopId || currentShopId,
+      customer: customer.trim() || 'Walk-in Customer',
+      city: city.trim() || 'Pune',
+      date: effectiveDate,
+    }))
 
     const allSaved = await addSalesBatch(salesPayload)
 
@@ -300,7 +356,7 @@ const AddSale = () => {
       return
     }
 
-    setCartItems([])
+    clearCart()
     setCustomer('')
     setCity('')
     setDate(getLocalISODate())
@@ -384,8 +440,17 @@ const AddSale = () => {
                 <button type="button" className="outline-btn" onClick={handleClearCart}>
                   Clear Cart
                 </button>
-                <button type="button" className="cta-btn cta-large" onClick={handleCartCheckout}>
-                  Add Cart to Sale →
+                <button
+                  ref={inPageCheckoutRef}
+                  type="button"
+                  className="cta-btn cta-large cart-checkout-btn"
+                  onClick={handleCartCheckout}
+                >
+                  <span>Checkout Cart</span>
+                  <span className={`branch-badge branch-badge-${currentShopId}`}>
+                    {currentShop?.name?.replace(' Branch', '') || 'Branch'}
+                  </span>
+                  <span className="cta-arrow">→</span>
                 </button>
               </div>
             </div>
@@ -518,7 +583,10 @@ const AddSale = () => {
               Reset
             </button>
             <button type="button" className="cta-btn" onClick={addListSelectionToCart}>
-              Add Selected to Cart
+              <span>Add Selected to Cart</span>
+              <span className={`branch-badge branch-badge-${currentShopId}`}>
+                {currentShop?.name?.replace(' Branch', '') || 'Branch'}
+              </span>
             </button>
           </div>
         </div>
@@ -558,7 +626,13 @@ const AddSale = () => {
       {entryMode === 'card' && isSheetOpen && selectedProduct ? (
         <div className="sheet-backdrop" onClick={closeSheet}>
           <form className="glass-card sale-sheet" onSubmit={handleSubmit} onClick={(event) => event.stopPropagation()}>
-            <div className="sheet-handle" />
+            <div
+              className="sheet-handle"
+              onTouchStart={handleSheetTouchStart}
+              onTouchEnd={handleSheetTouchEnd}
+              title="Swipe down to close"
+              aria-hidden="true"
+            />
 
             <div className="sheet-header">
               <div className="sheet-product">
@@ -571,6 +645,11 @@ const AddSale = () => {
                 <div>
                   <h3>{selectedProduct.name}</h3>
                   <p>₹{selectedProduct.price.toLocaleString('en-IN')} per unit</p>
+                  {cartDetails.detailedItems.length > 0 ? (
+                    <span className="sheet-cart-indicator">
+                      🛒 Cart: {cartDetails.totalUnits} {cartDetails.totalUnits === 1 ? 'unit' : 'units'} · ₹{cartDetails.totalAmount.toLocaleString('en-IN')}
+                    </span>
+                  ) : null}
                 </div>
               </div>
 
@@ -582,7 +661,12 @@ const AddSale = () => {
             <div className="quantity-panel">
               <span>Quantity</span>
               <div className="stepper">
-                <button type="button" className="stepper-btn" onClick={() => updateQuantity(quantity - 1)}>
+                <button
+                  type="button"
+                  className="stepper-btn"
+                  onClick={() => updateQuantity(Math.max(1, (Number(quantity) || 1) - 1))}
+                  aria-label="Decrease quantity"
+                >
                   -
                 </button>
                 <input
@@ -591,9 +675,15 @@ const AddSale = () => {
                   inputMode="numeric"
                   value={quantity}
                   onChange={(event) => updateQuantity(event.target.value)}
+                  aria-label="Quantity"
                   required
                 />
-                <button type="button" className="stepper-btn" onClick={() => updateQuantity(quantity + 1)}>
+                <button
+                  type="button"
+                  className="stepper-btn"
+                  onClick={() => updateQuantity((Number(quantity) || 1) + 1)}
+                  aria-label="Increase quantity"
+                >
                   +
                 </button>
               </div>
@@ -604,7 +694,7 @@ const AddSale = () => {
                 <button
                   key={value}
                   type="button"
-                  className={`quick-qty ${quantity === value ? 'active' : ''}`}
+                  className={`quick-qty ${Number(quantity) === value ? 'active' : ''}`}
                   onClick={() => updateQuantity(value)}
                 >
                   {value}
@@ -613,24 +703,57 @@ const AddSale = () => {
             </div>
 
             <div className="sheet-actions">
-              <button type="button" className="outline-btn" onClick={handleAddToCart}>
-                Add to Cart
-              </button>
-              <button type="submit" className="cta-btn cta-full">
-                Add to Sale
-              </button>
+              {cartDetails.detailedItems.length > 0 ? (
+                <>
+                  <button
+                    type="submit"
+                    className="outline-btn"
+                    title="Record only this item as an instant separate sale"
+                  >
+                    <span>Sell this only · ₹{((Number(quantity) || 1) * selectedProduct.price).toLocaleString('en-IN')}</span>
+                    <span className={`branch-badge branch-badge-${currentShopId}`}>
+                      {currentShop?.name?.replace(' Branch', '') || 'Branch'}
+                    </span>
+                  </button>
+                  <button type="button" className="cta-btn cta-full" onClick={handleAddToCart}>
+                    <span>Add to Cart · ₹{((Number(quantity) || 1) * selectedProduct.price).toLocaleString('en-IN')}</span>
+                    <span className={`branch-badge branch-badge-${currentShopId}`}>
+                      {currentShop?.name?.replace(' Branch', '') || 'Branch'}
+                    </span>
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button type="button" className="outline-btn" onClick={handleAddToCart}>
+                    <span>Add to Cart</span>
+                    <span className={`branch-badge branch-badge-${currentShopId}`}>
+                      {currentShop?.name?.replace(' Branch', '') || 'Branch'}
+                    </span>
+                  </button>
+                  <button type="submit" className="cta-btn cta-full">
+                    <span>Add to Sale · ₹{((Number(quantity) || 1) * selectedProduct.price).toLocaleString('en-IN')}</span>
+                    <span className={`branch-badge branch-badge-${currentShopId}`}>
+                      {currentShop?.name?.replace(' Branch', '') || 'Branch'}
+                    </span>
+                  </button>
+                </>
+              )}
             </div>
           </form>
         </div>
       ) : null}
 
-      {cartDetails.detailedItems.length > 0 ? (
+      {cartDetails.detailedItems.length > 0 && !isSheetOpen && !isInPageCheckoutVisible ? (
         <div className="mobile-sticky-checkout" role="region" aria-label="Cart checkout">
           <p>
             {cartDetails.totalUnits.toLocaleString('en-IN')} units • ₹{cartDetails.totalAmount.toLocaleString('en-IN')}
           </p>
           <button type="button" className="cta-btn" onClick={handleCartCheckout}>
-            Checkout Cart
+            <span>Checkout Cart</span>
+            <span className={`branch-badge branch-badge-${currentShopId}`}>
+              {currentShop?.name?.replace(' Branch', '') || 'Branch'}
+            </span>
+            <span>→</span>
           </button>
         </div>
       ) : null}
