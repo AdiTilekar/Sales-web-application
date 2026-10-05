@@ -11,6 +11,7 @@ const ShopSelector = () => {
         value={currentShopId} 
         onChange={(e) => changeShop(e.target.value)}
         className="shop-selector-select"
+        aria-label="Select Shop Branch"
       >
         {SHOPS.map((shop) => (
           <option key={shop.id} value={shop.id}>

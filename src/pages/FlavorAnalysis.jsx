@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Bar, BarChart, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { Bar, BarChart, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { useSales } from '../context/SalesContext'
 import { DEFAULT_SHOP_ID } from '../data/products'
 import { handleImageError } from '../utils/image'
@@ -129,15 +129,16 @@ const FlavorAnalysis = () => {
         <article className="glass-card chart-card">
           <h2>Profit by Flavor</h2>
           <ResponsiveContainer width="100%" height={340}>
-            <BarChart data={data}>
-              <XAxis dataKey="name" tick={{ fill: '#fff' }} axisLine={false} tickLine={false} angle={-25} height={80} />
-              <YAxis tick={{ fill: '#fff' }} axisLine={false} tickLine={false} />
+            <BarChart data={data} margin={{ top: 10, right: 10, left: 10, bottom: 25 }}>
+              <XAxis dataKey="name" tick={{ fill: '#fff', fontSize: 11 }} axisLine={false} tickLine={false} angle={-25} height={80} textAnchor="end" />
+              <YAxis tick={{ fill: '#fff', fontSize: 11 }} axisLine={false} tickLine={false} />
               <Tooltip
                 contentStyle={{ background: '#131b32', border: '1px solid rgba(255,255,255,0.2)' }}
                 labelStyle={{ color: '#fff' }}
                 formatter={(value) => formatCurrency(value)}
               />
-              <Bar dataKey="profit" fill="#3ecf8e" radius={[8, 8, 0, 0]} />
+              <Legend verticalAlign="bottom" wrapperStyle={{ paddingTop: '8px' }} />
+              <Bar name="Profit" dataKey="profit" fill="#3ecf8e" radius={[8, 8, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </article>
@@ -145,8 +146,8 @@ const FlavorAnalysis = () => {
         <article className="glass-card chart-card">
           <h2>Units Share</h2>
           <ResponsiveContainer width="100%" height={340}>
-            <PieChart>
-              <Pie data={data} dataKey="units" nameKey="name" cx="50%" cy="50%" outerRadius={120} innerRadius={65}>
+            <PieChart margin={{ top: 10, right: 10, left: 10, bottom: 25 }}>
+              <Pie data={data} dataKey="units" nameKey="name" cx="50%" cy="45%" outerRadius={90} innerRadius={50}>
                 {data.map((item, index) => (
                   <Cell key={item.id} fill={PIE_COLORS[index % PIE_COLORS.length]} />
                 ))}
@@ -156,11 +157,13 @@ const FlavorAnalysis = () => {
                 labelStyle={{ color: '#fff' }}
                 formatter={(value) => `${Number(value).toLocaleString('en-IN')} units`}
               />
+              <Legend verticalAlign="bottom" wrapperStyle={{ paddingTop: '8px', fontSize: '0.8rem' }} />
             </PieChart>
           </ResponsiveContainer>
         </article>
       </div>
 
+      {/* Desktop Table View */}
       <div className="glass-card leaderboard-wrap">
         <h2>Flavor Leaderboard</h2>
         <table className="leaderboard-table">
@@ -206,6 +209,45 @@ const FlavorAnalysis = () => {
             })}
           </tbody>
         </table>
+      </div>
+
+      {/* Mobile Cards View */}
+      <div className="mobile-leaderboard-list" aria-label="Flavor leaderboard for mobile">
+        <h2 className="leaderboard-mobile-heading">Flavor Leaderboard</h2>
+        {data.length === 0 ? (
+          <div className="glass-card mobile-sale-card mobile-sale-empty">No flavor data found.</div>
+        ) : (
+          data.map((item, index) => {
+            const share = totalUnits ? (item.units / totalUnits) * 100 : 0
+            return (
+              <article key={item.id} className="glass-card mobile-leaderboard-card">
+                <div className="mobile-leaderboard-top">
+                  <div className="flavor-cell">
+                    <span className="leaderboard-rank-badge">#{index + 1}</span>
+                    <img src={item.image} alt={item.name} onError={handleImageError} />
+                    <strong>{item.name}</strong>
+                  </div>
+                  <span className="leaderboard-margin-badge">{item.margin.toFixed(1)}% margin</span>
+                </div>
+                <div className="mobile-leaderboard-meta">
+                  <span>Units: <strong>{item.units.toLocaleString('en-IN')}</strong></span>
+                  <span>Revenue: <strong>{formatCurrency(item.revenue)}</strong></span>
+                  <span>Cost: <strong>{formatCurrency(item.cost)}</strong></span>
+                  <span>Profit: <strong className="text-profit">{formatCurrency(item.profit)}</strong></span>
+                </div>
+                <div className="mobile-leaderboard-share">
+                  <div className="share-label">
+                    <span>Volume Share</span>
+                    <strong>{share.toFixed(1)}%</strong>
+                  </div>
+                  <div className="progress">
+                    <div className="progress-fill" style={{ width: `${share}%` }} />
+                  </div>
+                </div>
+              </article>
+            )
+          })
+        )}
       </div>
     </section>
   )

@@ -21,6 +21,7 @@ import {
 const QUICK_PRESETS = [5, 10, 20, 50, 100]
 
 const getDefaultUnitCost = (product) => {
+  if (product?.costPrice !== undefined) return Number(product.costPrice)
   const price = Number(product?.price || 0)
   const profit = Number(product?.profitPerUnit || 0)
   return Math.max(0, price - profit)

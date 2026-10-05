@@ -17,6 +17,7 @@ const ROUTE_TITLES = {
   '/history': 'History',
   '/reports': 'Reports',
   '/flavors': 'Flavor Analysis',
+  '/flavor-analysis': 'Flavor Analysis',
   '/purchase-order': 'Purchase Order',
   '/po': 'Purchase Order',
 }
@@ -57,6 +58,7 @@ function App() {
             <Route path="/history" element={<History />} />
             <Route path="/reports" element={<Reports />} />
             <Route path="/flavors" element={<FlavorAnalysis />} />
+            <Route path="/flavor-analysis" element={<FlavorAnalysis />} />
             <Route path="/purchase-order" element={<PurchaseOrder />} />
             <Route path="/po" element={<Navigate to="/purchase-order" replace />} />
             <Route path="*" element={<Navigate to="/add" replace />} />

@@ -160,124 +160,179 @@ export const downloadPOPDF = async (po) => {
   })
 
   const pageWidth = doc.internal.pageSize.getWidth()
+  const pageHeight = doc.internal.pageSize.getHeight()
   const dateStr = new Date(po.date || getLocalISODate()).toLocaleDateString('en-IN')
+  const deliveryStr = po.expectedDelivery
+    ? new Date(po.expectedDelivery).toLocaleDateString('en-IN')
+    : 'Immediate / Next Batch'
 
-  // Header Banner
-  doc.setFillColor(15, 23, 42)
-  doc.rect(0, 0, pageWidth, 38, 'F')
+  // 1. Header Banner
+  doc.setFillColor(15, 23, 42) // Navy #0f172a
+  doc.rect(0, 0, pageWidth, 36, 'F')
+
+  // Top Left Brand & Title
+  doc.setTextColor(242, 166, 35) // Gold #f2a623
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(17)
+  doc.text('SHREE GANESH KULFI', 14, 14)
+
+  doc.setTextColor(255, 255, 255)
+  doc.setFontSize(10.5)
+  doc.setFont('helvetica', 'normal')
+  doc.text(`Purchase Order — ${po.poNumber}`, 14, 22)
+
+  doc.setTextColor(148, 163, 184) // Slate 400
+  doc.setFontSize(8.5)
+  doc.text(`Issued by: ${COMPANY_NAME}`, 14, 29)
+
+  // Top Right Info
+  doc.setTextColor(255, 255, 255)
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(8.5)
+  doc.text(`Date: ${dateStr}`, pageWidth - 14, 14, { align: 'right' })
 
   doc.setTextColor(242, 166, 35)
   doc.setFont('helvetica', 'bold')
-  doc.setFontSize(18)
-  doc.text('SHREE GANESH KULFI', 14, 16)
+  doc.setFontSize(9)
+  doc.text(`Branch: ${po.branchName}`, pageWidth - 14, 22, { align: 'right' })
 
-  doc.setTextColor(255, 255, 255)
-  doc.setFontSize(11)
+  doc.setTextColor(226, 232, 240)
   doc.setFont('helvetica', 'normal')
-  doc.text(`Purchase Order — ${po.poNumber}`, 14, 25)
-  doc.setFontSize(9)
-  doc.text(`Issued by: ${COMPANY_NAME}`, 14, 32)
+  doc.setFontSize(8.5)
+  doc.text(`Expected Delivery: ${deliveryStr}`, pageWidth - 14, 29, { align: 'right' })
 
-  // Top Right Info Box
-  doc.setFontSize(9)
-  doc.text(`Date: ${dateStr}`, pageWidth - 14, 18, { align: 'right' })
-  doc.text(`Branch: ${po.branchName}`, pageWidth - 14, 25, { align: 'right' })
-  if (po.expectedDelivery) {
-    doc.text(`Delivery: ${new Date(po.expectedDelivery).toLocaleDateString('en-IN')}`, pageWidth - 14, 32, { align: 'right' })
-  }
+  // 2. Supplier / Factory Information Panel
+  const suppY = 42
+  const hasPhone = Boolean(po.supplierPhone)
+  const hasNotes = Boolean(po.notes)
+  let suppBoxHeight = 16
+  if (hasPhone && hasNotes) suppBoxHeight = 24
+  else if (hasPhone || hasNotes) suppBoxHeight = 20
 
-  // Supplier Details
+  doc.setFillColor(248, 250, 252) // #f8fafc
+  doc.setDrawColor(226, 232, 240) // #e2e8f0
+  doc.setLineWidth(0.3)
+  doc.roundedRect(14, suppY, pageWidth - 28, suppBoxHeight, 2, 2, 'FD')
+
   doc.setTextColor(15, 23, 42)
   doc.setFont('helvetica', 'bold')
-  doc.setFontSize(11)
-  doc.text('Supplier / Factory Information:', 14, 48)
+  doc.setFontSize(8.5)
+  doc.text('SUPPLIER / FACTORY INFORMATION:', 18, suppY + 5.5)
 
   doc.setFont('helvetica', 'normal')
-  doc.setFontSize(10)
-  doc.text(`Name: ${po.supplierName || 'Factory Warehouse'}`, 14, 55)
-  if (po.supplierPhone) {
-    doc.text(`Contact: ${po.supplierPhone}`, 14, 61)
-  }
-  if (po.notes) {
-    doc.text(`Notes: ${po.notes}`, 14, po.supplierPhone ? 67 : 61)
+  doc.setFontSize(8.5)
+  doc.setTextColor(51, 65, 85)
+  doc.text(`Name: ${po.supplierName || 'Shree Ganesh Kulfi Factory'}`, 18, suppY + 11)
+
+  if (hasPhone) {
+    doc.text(`Contact: ${po.supplierPhone}`, 18, suppY + 16.5)
   }
 
-  // Table rows
+  if (hasNotes) {
+    const notesY = hasPhone ? suppY + 21.5 : suppY + 16.5
+    doc.setFont('helvetica', 'italic')
+    doc.setTextColor(100, 116, 139)
+    doc.text(`Notes: ${po.notes}`, 18, notesY)
+  }
+
+  // 3. Table Rows
   const tableRows = po.items.map((item, index) => [
     index + 1,
     item.name,
-    item.quantity.toLocaleString('en-IN'),
-    formatCurrency(item.unitPrice),
-    formatCurrency(item.quantity * item.unitPrice),
+    Number(item.quantity).toLocaleString('en-IN'),
+    Number(item.unitPrice).toLocaleString('en-IN'),
+    Number(item.quantity * item.unitPrice).toLocaleString('en-IN'),
   ])
 
-  const startYPos = po.notes && po.supplierPhone ? 74 : 68
+  const startYPos = suppY + suppBoxHeight + 5
 
   autoTable(doc, {
     startY: startYPos,
-    head: [['#', 'Flavor / Item Description', 'Quantity (Units)', 'Unit Rate', 'Total Amount']],
+    head: [
+      [
+        { content: '#', styles: { halign: 'center' } },
+        { content: 'Flavor / Item Description', styles: { halign: 'left' } },
+        { content: 'Quantity (Units)', styles: { halign: 'right' } },
+        { content: 'Unit Rate (Rs.)', styles: { halign: 'right' } },
+        { content: 'Total Amount (Rs.)', styles: { halign: 'right' } },
+      ],
+    ],
     body: tableRows,
     theme: 'grid',
     headStyles: {
       fillColor: [15, 23, 42],
       textColor: [242, 166, 35],
       fontStyle: 'bold',
-      fontSize: 10,
+      fontSize: 9,
+      cellPadding: { top: 3.5, bottom: 3.5, left: 3, right: 3 },
     },
     bodyStyles: {
-      fontSize: 9.5,
+      fontSize: 8.5,
       textColor: [30, 41, 59],
+      cellPadding: { top: 2.5, bottom: 2.5, left: 3, right: 3 },
+    },
+    alternateRowStyles: {
+      fillColor: [248, 250, 252],
     },
     columnStyles: {
-      0: { cellWidth: 12, halign: 'center' },
-      1: { cellWidth: 'auto' },
-      2: { cellWidth: 35, halign: 'right' },
-      3: { cellWidth: 30, halign: 'right' },
-      4: { cellWidth: 35, halign: 'right' },
+      0: { cellWidth: 10, halign: 'center' },
+      1: { cellWidth: 'auto', halign: 'left' },
+      2: { cellWidth: 32, halign: 'right' },
+      3: { cellWidth: 28, halign: 'right' },
+      4: { cellWidth: 34, halign: 'right' },
     },
     foot: [
       [
-        '',
-        'Grand Totals',
-        `${po.totalUnits.toLocaleString('en-IN')} units`,
-        '-',
-        formatCurrency(po.totalAmount),
+        { content: 'Grand Totals', colSpan: 2, styles: { halign: 'right', fontStyle: 'bold' } },
+        { content: `${Number(po.totalUnits).toLocaleString('en-IN')} units`, styles: { halign: 'right', fontStyle: 'bold' } },
+        { content: '-', styles: { halign: 'center' } },
+        { content: `Rs. ${Number(po.totalAmount).toLocaleString('en-IN')}`, styles: { halign: 'right', fontStyle: 'bold' } },
       ],
     ],
     footStyles: {
       fillColor: [241, 245, 249],
       textColor: [15, 23, 42],
       fontStyle: 'bold',
-      fontSize: 10,
-      halign: 'right',
+      fontSize: 9,
+      cellPadding: { top: 3.5, bottom: 3.5, left: 3, right: 3 },
     },
+    margin: { left: 14, right: 14 },
   })
 
-  const finalY = doc.lastAutoTable.finalY + 12
+  // 4. Digital Signature Box
+  let finalY = doc.lastAutoTable.finalY + 8
+  const sigBoxHeight = 28
+  const sigBoxWidth = 78
+  const sigBoxX = pageWidth - 14 - sigBoxWidth
 
-  // Digital Signature Box
-  doc.setDrawColor(242, 166, 35)
-  doc.setLineWidth(0.5)
-  doc.setFillColor(254, 252, 232)
-  doc.roundedRect(pageWidth - 90, finalY, 76, 32, 2, 2, 'FD')
+  if (finalY + sigBoxHeight > pageHeight - 12) {
+    doc.addPage()
+    finalY = 16
+  }
 
-  doc.setTextColor(180, 83, 9)
+  doc.setDrawColor(242, 166, 35) // Gold border
+  doc.setLineWidth(0.4)
+  doc.setFillColor(254, 252, 232) // Amber light
+  doc.roundedRect(sigBoxX, finalY, sigBoxWidth, sigBoxHeight, 2, 2, 'FD')
+
+  doc.setTextColor(180, 83, 9) // Amber 700
   doc.setFont('helvetica', 'bold')
-  doc.setFontSize(8.5)
-  doc.text('✓ DIGITAL SIGNATURE VERIFIED', pageWidth - 86, finalY + 7)
+  doc.setFontSize(7.5)
+  doc.text('DIGITAL SIGNATURE VERIFIED', sigBoxX + 4, finalY + 6)
 
   doc.setTextColor(15, 23, 42)
-  doc.setFontSize(9)
-  doc.text('Authorized Signatory:', pageWidth - 86, finalY + 14)
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(8)
+  doc.text('Authorized Signatory:', sigBoxX + 4, finalY + 12)
 
   doc.setFont('helvetica', 'bold')
-  doc.setFontSize(9.5)
-  doc.text(COMPANY_NAME, pageWidth - 86, finalY + 21)
+  doc.setFontSize(8.5)
+  doc.text(COMPANY_NAME, sigBoxX + 4, finalY + 18)
 
   doc.setFont('helvetica', 'italic')
-  doc.setFontSize(7.5)
+  doc.setFontSize(7)
   doc.setTextColor(100, 116, 139)
-  doc.text(`Signed on ${dateStr} via Kulfi POS`, pageWidth - 86, finalY + 27)
+  doc.text(`Signed on ${dateStr} via Kulfi POS`, sigBoxX + 4, finalY + 23.5)
 
   // Save PDF
   doc.save(`${po.poNumber.toLowerCase()}_${po.branchName.replace(/\s+/g, '_').toLowerCase()}.pdf`)

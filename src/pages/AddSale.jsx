@@ -458,17 +458,31 @@ const AddSale = () => {
         )}
       </div>
 
-      <form className="glass-card flavor-search" onSubmit={(event) => event.preventDefault()}>
-        <input
-          type="text"
-          value={searchInput}
-          onChange={(event) => setSearchInput(event.target.value)}
-          placeholder="Type to search flavor..."
-          aria-label="Search flavor"
-        />
-        <button type="button" className="outline-btn" onClick={clearSearch}>
-          Clear
-        </button>
+      <form className="glass-card flavor-search-card" onSubmit={(event) => event.preventDefault()}>
+        <div className="search-field-wrap">
+          <svg className="search-field-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <circle cx="11" cy="11" r="8" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+          <input
+            type="text"
+            value={searchInput}
+            onChange={(event) => setSearchInput(event.target.value)}
+            placeholder="Type to search flavor..."
+            aria-label="Search flavor"
+            className="search-field-input"
+          />
+          {searchInput ? (
+            <button
+              type="button"
+              className="search-field-clear-btn"
+              onClick={clearSearch}
+              aria-label="Clear search"
+            >
+              ✕
+            </button>
+          ) : null}
+        </div>
       </form>
 
       {entryMode === 'card' ? (

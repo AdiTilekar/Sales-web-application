@@ -3,6 +3,7 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  Legend,
   Line,
   LineChart,
   ResponsiveContainer,
@@ -278,53 +279,56 @@ const Dashboard = () => {
       <div className="chart-grid">
         <article className="glass-card chart-card">
           <h2>Revenue vs Profit Snapshot</h2>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={monthlyFinance}>
+          <ResponsiveContainer width="100%" height={280}>
+            <BarChart data={monthlyFinance} margin={{ top: 10, right: 10, left: -15, bottom: 0 }}>
               <CartesianGrid stroke="rgba(255,255,255,0.12)" strokeDasharray="4 4" />
-              <XAxis dataKey="month" tick={{ fill: '#fff' }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fill: '#fff' }} axisLine={false} tickLine={false} />
+              <XAxis dataKey="month" tick={{ fill: '#fff', fontSize: 12 }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fill: '#fff', fontSize: 12 }} axisLine={false} tickLine={false} />
               <Tooltip
-                contentStyle={{ background: '#131b32', border: '1px solid rgba(255,255,255,0.2)' }}
+                contentStyle={{ background: '#131b32', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '8px' }}
                 labelStyle={{ color: '#fff' }}
                 formatter={(value) => formatCurrency(value)}
               />
-              <Bar dataKey="revenue" fill="#F2A623" radius={[8, 8, 0, 0]} />
-              <Bar dataKey="profit" fill="#3ecf8e" radius={[8, 8, 0, 0]} />
+              <Legend verticalAlign="bottom" height={36} wrapperStyle={{ color: '#fff', fontSize: '0.82rem', paddingTop: '6px' }} />
+              <Bar name="Revenue" dataKey="revenue" fill="#F2A623" radius={[6, 6, 0, 0]} />
+              <Bar name="Profit" dataKey="profit" fill="#3ecf8e" radius={[6, 6, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </article>
 
         <article className="glass-card chart-card">
           <h2>Top 7 Flavors by Profit</h2>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={topFlavors} layout="vertical">
+          <ResponsiveContainer width="100%" height={280}>
+            <BarChart data={topFlavors} layout="vertical" margin={{ top: 5, right: 15, left: -10, bottom: 0 }}>
               <CartesianGrid stroke="rgba(255,255,255,0.12)" strokeDasharray="4 4" />
-              <XAxis type="number" tick={{ fill: '#fff' }} axisLine={false} tickLine={false} />
-              <YAxis dataKey="name" type="category" tick={{ fill: '#fff' }} axisLine={false} tickLine={false} width={90} />
+              <XAxis type="number" tick={{ fill: '#fff', fontSize: 11 }} axisLine={false} tickLine={false} />
+              <YAxis dataKey="name" type="category" tick={{ fill: '#fff', fontSize: 11 }} axisLine={false} tickLine={false} width={80} />
               <Tooltip
-                contentStyle={{ background: '#131b32', border: '1px solid rgba(255,255,255,0.2)' }}
+                contentStyle={{ background: '#131b32', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '8px' }}
                 labelStyle={{ color: '#fff' }}
                 formatter={(value) => formatCurrency(value)}
               />
-              <Bar dataKey="profit" fill="#3ecf8e" radius={[0, 10, 10, 0]} />
+              <Legend verticalAlign="bottom" height={36} wrapperStyle={{ color: '#fff', fontSize: '0.82rem', paddingTop: '6px' }} />
+              <Bar name="Profit" dataKey="profit" fill="#3ecf8e" radius={[0, 8, 8, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </article>
 
         <article className="glass-card chart-card chart-card-wide">
           <h2>Revenue and Profit Trend (All Time)</h2>
-          <ResponsiveContainer width="100%" height={320}>
-            <LineChart data={dailyTrend}>
+          <ResponsiveContainer width="100%" height={300}>
+            <LineChart data={dailyTrend} margin={{ top: 10, right: 10, left: -15, bottom: 0 }}>
               <CartesianGrid stroke="rgba(255,255,255,0.12)" strokeDasharray="4 4" />
-              <XAxis dataKey="date" tick={{ fill: '#fff' }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fill: '#fff' }} axisLine={false} tickLine={false} />
+              <XAxis dataKey="date" tick={{ fill: '#fff', fontSize: 11 }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fill: '#fff', fontSize: 11 }} axisLine={false} tickLine={false} />
               <Tooltip
-                contentStyle={{ background: '#131b32', border: '1px solid rgba(255,255,255,0.2)' }}
+                contentStyle={{ background: '#131b32', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '8px' }}
                 labelStyle={{ color: '#fff' }}
                 formatter={(value) => formatCurrency(value)}
               />
-              <Line type="monotone" dataKey="revenue" stroke="#F2A623" strokeWidth={3} dot={{ r: 2, fill: '#F2A623' }} />
-              <Line type="monotone" dataKey="profit" stroke="#3ecf8e" strokeWidth={3} dot={{ r: 2, fill: '#3ecf8e' }} />
+              <Legend verticalAlign="bottom" height={36} wrapperStyle={{ color: '#fff', fontSize: '0.82rem', paddingTop: '6px' }} />
+              <Line name="Revenue" type="monotone" dataKey="revenue" stroke="#F2A623" strokeWidth={2.5} dot={{ r: 2, fill: '#F2A623' }} />
+              <Line name="Profit" type="monotone" dataKey="profit" stroke="#3ecf8e" strokeWidth={2.5} dot={{ r: 2, fill: '#3ecf8e' }} />
             </LineChart>
           </ResponsiveContainer>
         </article>

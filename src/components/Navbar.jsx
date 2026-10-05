@@ -52,10 +52,12 @@ const Navbar = () => {
             className={`sync-badge ${statusClass}`}
             role="status"
             aria-live="polite"
+            aria-label={`Sync status: ${statusLabel}`}
             title={lastSyncError ? `${statusLabel}: ${lastSyncError}` : statusLabel}
           >
             <span className="dot" aria-hidden="true" />
             <span className="sync-text">{statusLabel}</span>
+            <span className="sr-only">Sync status: {statusLabel}</span>
           </span>
         </div>
 
